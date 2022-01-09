@@ -1,0 +1,11 @@
+[package]
+name = "hunt"
+description = "Simple command to search a file/folder by name on the entire drive."
+version = "1.0.0"
+authors = ["Liam G <l.garriga.r@tutanota.com>"]
+edition = "2021"
+
+[dependencies]
+clap = { version = "3.0.5", features = ["derive"] }
+dirs = "4.0.0"
+rayon = "1.5.1"
