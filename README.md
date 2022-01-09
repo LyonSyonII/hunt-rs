@@ -3,10 +3,10 @@ Hunt is a simplified Find command made with Rust.
 It searches a file/folder by name on the entire drive.
 
 ## Usage
-`hunt [OPTIONS] <NAME>`
+    hunt [OPTIONS] <NAME>
 
 ### Args
-`<NAME>    Name of the file/folder to search`
+    <NAME>    Name of the file/folder to search
 
 ### Options
     -e, --exact    Only search for exactly matching occurrences
