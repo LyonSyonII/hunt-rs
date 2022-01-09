@@ -1,6 +1,12 @@
 [package]
 name = "hunt"
 description = "Simple command to search a file/folder by name on the entire drive."
+homepage = "https://github.com/LyonSyonII/hunt-rs"
+documentation = "https://github.com/LyonSyonII/hunt-rs"
+repository = "https://github.com/LyonSyonII/hunt-rs"
+keywords = ["algorithms", "command-line-utilities", "filesystem"]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
 version = "1.0.0"
 authors = ["Liam G <l.garriga.r@tutanota.com>"]
 edition = "2021"
