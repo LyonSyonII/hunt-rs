@@ -21,4 +21,6 @@ Hunt is multithreaded, so it's a lot faster than `find`, and more reliable than 
 ## Installation
 First check that you have (Rust)[https://www.rust-lang.org/] installed, then run
 
-```cargo install hunt```
+```
+cargo install hunt
+```
