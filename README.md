@@ -23,4 +23,4 @@ First check that you have (Rust)[https://www.rust-lang.org/] installed, then run
 
 ```
 cargo install hunt
-```
+``` bash
