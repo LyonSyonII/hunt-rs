@@ -5,13 +5,13 @@ It searches a file/folder by name on the entire drive.
 ## Usage
     hunt [OPTIONS] <NAME>
 
-### Args
-    <NAME>    Name of the file/folder to search
-
 ### Options
     -e, --exact    Only search for exactly matching occurrences
     -f, --first    Stop when first occurrence is found
     -h, --help     Print help information
+
+### Args
+    <NAME>    Name of the file/folder to search
 
 ## Why I made it?
 I found I used the `find` command just to search one file, so I wanted a simpler and faster option.
