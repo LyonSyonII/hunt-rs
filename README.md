@@ -2,6 +2,9 @@
 Hunt is a (highly-opinionated) simplified Find command made with Rust.  
 It searches a file/folder by name on the entire drive.
 
+If the --first flag is set, the order on which the file will be searched is [current_dir, home_dir, root].  
+If you're already in one of these directories, "current_dir" will be skipped.
+
 ## Usage
     hunt [OPTIONS] <NAME>
 
@@ -22,6 +25,22 @@ It searches a file/folder by name on the entire drive.
             
             e.g. "hunt somefile /home/user /home/user/downloads" will search in the home directory, and because /home/user/downloads is inside it, /downloads will be traversed two times
 
+### Examples
+Search for a specific file on the whole system (hunt will stop once found)  
+    
+    hunt -f -e SomeFile
+
+Search for files containing "SomeFile"
+
+    hunt SomeFile
+
+Search file in the home directory
+
+    hunt -e SomeFile ~/
+
+Search file in the downloads and pictures directories
+    
+    hunt -e SomeFile ~/downloads ~/pictures
 
 ## Why I made it?
 I found I used the `find` command just to search one file, so I wanted a simpler and faster option.
