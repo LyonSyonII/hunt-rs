@@ -15,7 +15,7 @@ impl From<Option<String>> for FileType {
                 "d" => FileType::Dir,
                 "f" => FileType::File,
                 _ => {
-                    eprintln!("File type {} not recognized.\nPlease use 'f' for files and 'd' for directories.\nSee --help for more information.", s);
+                    eprintln!("File type {} not recognized\nPlease use 'f' for files and 'd' for directories\nSee --help for more information\n", s);
                     std::process::exit(1)
                 }
             }
@@ -30,7 +30,7 @@ impl From<Option<String>> for FileType {
 #[derive(Parser, Debug)]
 #[clap(
     name = "Hunt",
-    about = "Simple command to search a file/folder by name on the entire drive.\nBy default it searches all occurrences on the system."
+    about = "Simple command to search a file/folder by name on the entire drive\nBy default it searches all occurrences on the system"
 )]
 struct Cli {
     /// Stop when first occurrence is found
