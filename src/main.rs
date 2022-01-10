@@ -26,6 +26,7 @@ impl From<Option<String>> for FileType {
     }
 }
 
+
 #[derive(Parser, Debug)]
 #[clap(
     name = "Hunt",
@@ -75,20 +76,20 @@ struct Cli {
     limit_to_dirs: Vec<String>,
 }
 
-const EXACT: &str = "SEARCH_EXACT";
-const CONTAINS: &str = "SEARCH_CONT";
 lazy_static::lazy_static! {
     static ref CURRENT_DIR: PathBuf = std::env::current_dir().expect("Current dir could not be read");
     static ref HOME_DIR: PathBuf = dirs::home_dir().expect("Home dir could not be read");
     static ref ROOT_DIR: PathBuf = PathBuf::from("/");
 }
 
-fn append_var(var: &str, txt: &PathBuf) {
-    let val = std::env::var(var).unwrap() + &txt.to_string_lossy() + "\n";
-    std::env::set_var(var, val);
+type Buffer = std::sync::Arc<std::sync::Mutex<(String, String)>>;
+
+fn append_var(var: &mut String, txt: &PathBuf) {
+    var.push_str(&txt.to_string_lossy());
+    var.push_str("\n");
 }
 
-fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str, &FileType), first: bool, exact: bool, limit: bool, verbose: bool) {
+fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str, &FileType), first: bool, exact: bool, limit: bool, verbose: bool, buffer: Buffer) {
     // Get entry name
     let n = entry.file_name();
     let n = n.to_string_lossy();
@@ -121,7 +122,7 @@ fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str, &FileType), f
             println!("{}\n", path.to_string_lossy());
             std::process::exit(0)
         } else {
-            append_var(EXACT, &path)
+            append_var(&mut buffer.lock().unwrap().0, &path)
         }
     }
     // If name contains search, print it
@@ -130,7 +131,7 @@ fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str, &FileType), f
             println!("Contains:\n{}\n", path.to_string_lossy());
             std::process::exit(0)
         } else {
-            append_var(CONTAINS, &path)
+            append_var(&mut buffer.lock().unwrap().1, &path)
         }
     }
 
@@ -143,7 +144,7 @@ fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str, &FileType), f
         if let Ok(read) = std::fs::read_dir(&path) {
             read.par_bridge().for_each(|entry| {
                 if let Ok(e) = entry {
-                    search_dir(e, search, first, exact, limit, verbose);
+                    search_dir(e, search, first, exact, limit, verbose, buffer.clone());
                 }
             })
         } else if verbose {
@@ -154,11 +155,11 @@ fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str, &FileType), f
     }
 }
 
-fn search(dir: &PathBuf, search: (&str, &str, &str, &FileType), first: bool, exact: bool, limit: bool, verbose: bool) {
+fn search(dir: &PathBuf, search: (&str, &str, &str, &FileType), first: bool, exact: bool, limit: bool, verbose: bool, buffer: Buffer) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.par_bridge().for_each(|entry| {
             if let Ok(e) = entry {
-                search_dir(e, search, first, exact, limit, verbose);
+                search_dir(e, search, first, exact, limit, verbose, buffer.clone());
             }
         })
     } else if verbose {
@@ -168,9 +169,8 @@ fn search(dir: &PathBuf, search: (&str, &str, &str, &FileType), first: bool, exa
 
 fn main() {
     use indexmap::IndexSet;
-
-    std::env::set_var(EXACT, "");
-    std::env::set_var(CONTAINS, "");
+    
+    let buffer = std::sync::Arc::new(std::sync::Mutex::new((String::new(), String::new())));
     
     let mut cli = Cli::parse();
 
@@ -186,9 +186,6 @@ fn main() {
             n
         }
 
-    } else if starts.is_empty() && ends.is_empty() {
-        println!("error: The following required arguments were not provided:\n\t<NAME>\n\nUSAGE:\n\thunt [OPTIONS] <NAME> [LIMIT_TO_DIRS]...\n\nFor more information try --help");
-        std::process::exit(1);
     } else {
         String::new()
     };
@@ -200,13 +197,13 @@ fn main() {
         // If only search for first, do it in order (less expensive to more)
         if cli.first {
             for dir in dirs {
-                search(dir, (&name, &starts, &ends, &ftype), true, cli.exact, false, cli.verbose);
+                search(dir, (&name, &starts, &ends, &ftype), true, cli.exact, false, cli.verbose, buffer.clone());
             }
         } 
         // If search all occurrences, multithread search
         else {
             dirs.par_bridge().for_each(|dir| {
-                search(dir, (&name, &starts, &ends, &ftype), false, cli.exact, false, cli.verbose);
+                search(dir, (&name, &starts, &ends, &ftype), false, cli.exact, false, cli.verbose, buffer.clone());
             });
         }
     } else {
@@ -224,12 +221,11 @@ fn main() {
 
         // Search in directories
         dirs.par_bridge().for_each(|dir| {
-            search(&dir, (&name, &starts, &ends, &ftype), cli.first, cli.exact, true, cli.verbose);
+            search(&dir, (&name, &starts, &ends, &ftype), cli.first, cli.exact, true, cli.verbose, buffer.clone());
         });
     };
-
-    let ex = std::env::var(EXACT).unwrap();
-    let co = std::env::var(CONTAINS).unwrap();
+    
+    let (ex, co) = &*buffer.lock().unwrap();
 
     if ex.is_empty() && co.is_empty() {
         println!("File not found.");
