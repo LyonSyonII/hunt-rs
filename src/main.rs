@@ -1,6 +1,6 @@
 use clap::Parser;
-use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
-use std::path::PathBuf;
+use rayon::iter::{ ParallelBridge, ParallelIterator};
+use std::path::{ PathBuf };
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -15,11 +15,24 @@ struct Cli {
     /// Only search for exactly matching occurrences
     #[clap(short, long)]
     exact: bool,
+    
+    /// Print verbose output. 
+    /// 
+    /// It'll show all errors found:    
+    /// e.g. "Could not read /proc/81261/map_files" 
+    #[clap(short, long)]
+    verbose: bool,
 
     /// Name of the file/folder to search
     name: String,
 
-    /// Directories where you want to search. If provided, hunt will only search there.
+    /// Directories where you want to search. 
+    /// 
+    /// If provided, hunt will only search there. 
+    /// 
+    /// These directories are completely different for hunt, so if one is nested into other the search will be done two times:
+    /// 
+    /// e.g. "hunt somefile / /home" will search in the root directory, and because /home is inside it, /home will be traversed two times.
     #[clap(required = false)]
     limit_to_dirs: Vec<String>,
 }
@@ -37,7 +50,7 @@ fn append_var(var: &str, txt: &PathBuf) {
     std::env::set_var(var, val);
 }
 
-fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool, limit: bool) {
+fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool, limit: bool, verbose: bool) {
     // Get entry name
     let n = entry.file_name();
     let n = n.to_string_lossy();
@@ -62,42 +75,72 @@ fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool,
             return;
         }
 
-        if let Ok(read) = std::fs::read_dir(path) {
+        if let Ok(read) = std::fs::read_dir(&path) {
             read.par_bridge().for_each(|entry| {
                 if let Ok(e) = entry {
-                    search_dir(e, &name, first, exact, limit);
+                    search_dir(e, &name, first, exact, limit, verbose);
                 }
             })
+        } else if verbose {
+            eprintln!("Could not read {:?}", path);
         }
     }
 }
 
-fn search(dir: &PathBuf, name: &String, first: bool, exact: bool, limit: bool) {
+fn search(dir: &PathBuf, name: &String, first: bool, exact: bool, limit: bool, verbose: bool) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.par_bridge().for_each(|entry| {
             if let Ok(e) = entry {
-                search_dir(e, &name, first, exact, limit);
+                search_dir(e, &name, first, exact, limit, verbose);
             }
         })
+    } else if verbose {
+        eprintln!("Could not read {:?}", dir);
     }
 }
 
 fn main() {
+    use indexmap::IndexSet;
+
     std::env::set_var(EXACT, "");
     std::env::set_var(CONTAINS, "");
 
     let cli = Cli::parse();
 
     if cli.limit_to_dirs.is_empty() {
-        let dirs: std::collections::HashSet<&PathBuf> =
-            std::collections::HashSet::from([&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR]);
-
-        for dir in dirs {
-            search(dir, &cli.name, cli.first, cli.exact, false);
+        let dirs =
+            IndexSet::from([&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR]).into_iter();
+        
+        // If only search for first, do it in order (less expensive to more)
+        if cli.first {
+            for dir in dirs {
+                search(dir, &cli.name, true, cli.exact, false, cli.verbose);
+            }
+        } 
+        // If search all occurrences, multithread search
+        else {
+            dirs.par_bridge().for_each(|dir| {
+                search(dir, &cli.name, false, cli.exact, false, cli.verbose);
+            });
         }
+        
+        
     } else {
-        cli.limit_to_dirs.par_iter().for_each(|dir| {
-            search(&PathBuf::from(dir), &cli.name, cli.first, cli.exact, true);
+        // Check if paths are valid
+        let dirs = cli.limit_to_dirs.iter().map(|s| {
+            PathBuf::from(
+                std::fs::canonicalize(s).unwrap_or_else(|_| {
+                    eprintln!("ERROR: The {:?} directory does not exist", s);
+                    std::process::exit(1);
+                })
+            )
+        });
+        // Remove duplicates
+        let dirs = IndexSet::<PathBuf>::from_iter(dirs).into_iter();
+
+        // Search in directories
+        dirs.par_bridge().for_each(|dir| {
+            search(&dir, &cli.name, cli.first, cli.exact, true, cli.verbose);
         });
     }
 
