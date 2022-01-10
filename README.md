@@ -16,10 +16,10 @@ If you're already in one of these directories, "current_dir" will be skipped.
         --starts <STARTS_WITH> 
                    Only files that start with this will be found
 
-        --ends <ENDS_WITH>
+        --ends   <ENDS_WITH>
                    Only files that end with this will be found
 
-    -t, --type <FILE_TYPE>
+    -t, --type   <FILE_TYPE>
                    Specifies the type of the file
                    'f' -> file
                    'd' -> directory
