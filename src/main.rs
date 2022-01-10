@@ -21,6 +21,12 @@ struct Cli {
 
 const EXACT: &str = "SEARCH_EXACT";
 const CONTAINS: &str = "SEARCH_CONT";
+lazy_static::lazy_static! {
+    static ref CURRENT_DIR: PathBuf = std::env::current_dir().expect("Current dir could not be read");
+    static ref HOME_DIR: PathBuf = dirs::home_dir().expect("Home dir could not be read");
+
+}
+
 
 fn append_var(var: &str, txt: &PathBuf) {
     let val = std::env::var(var).unwrap() + &txt.to_string_lossy() + "\n";
@@ -28,7 +34,7 @@ fn append_var(var: &str, txt: &PathBuf) {
 }
 
 fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool) {
-    use rayon::prelude::*;
+    use rayon::iter::{ ParallelIterator, ParallelBridge };
 
     // Get entry name
     let n = entry.file_name();
@@ -47,12 +53,12 @@ fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool)
     else if !exact && n.contains(name) {
         append_var(CONTAINS, &path)
     }
-
+    
     // If entry is directory, search inside it
     if let Ok(ftype) = entry.file_type() {
         if !ftype.is_dir()
-            || path == std::env::current_dir().unwrap()
-            || path == dirs::home_dir().unwrap()
+            || path == *CURRENT_DIR
+            || path == *HOME_DIR
         {
             return;
         }
@@ -68,7 +74,7 @@ fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool)
 }
 
 fn search(dir: &PathBuf, name: &String, first: bool, exact: bool) {
-    use rayon::prelude::*;
+    use rayon::iter::{ ParallelIterator, ParallelBridge };
 
     if let Ok(read) = std::fs::read_dir(dir) {
         read.par_bridge().for_each(|entry| {
@@ -85,13 +91,13 @@ fn main() {
 
     let cli = Cli::parse();
     let dirs = [
-        std::env::current_dir().unwrap(),
-        dirs::home_dir().unwrap(),
-        PathBuf::from("/"),
+        &*CURRENT_DIR,
+        &*HOME_DIR,
+        &PathBuf::from("/"),
     ];
 
     for dir in dirs {
-        search(&dir, &cli.name, cli.first, cli.exact);
+        search(dir, &cli.name, cli.first, cli.exact);
     }
 
     let ex = std::env::var(EXACT).unwrap();

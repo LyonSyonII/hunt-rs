@@ -14,3 +14,4 @@ edition = "2021"
 clap = { version = "3.0.5", features = ["derive"] }
 dirs = "4.0.0"
 rayon = "1.5.1"
+lazy_static = "1.4.0"
