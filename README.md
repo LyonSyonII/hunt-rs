@@ -115,7 +115,7 @@ Find only first occurrence of a heavily nested file from the home directory.
 ~ ❯ time hunt -f -e SomeFile ~/
 /home/lyon/.wine/drive_c/Program Files (x86)/Internet Explorer/SomeFile
 
-
+ 
 ________________________________________________________
 Executed in   33,38 millis    fish           external
    usr time  107,91 millis    1,17 millis  106,74 millis
