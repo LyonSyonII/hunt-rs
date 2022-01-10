@@ -16,7 +16,7 @@ struct Cli {
     #[clap(short, long)]
     exact: bool,
     
-    /// Print verbose output. 
+    /// Print verbose output
     /// 
     /// It'll show all errors found:    
     /// e.g. "Could not read /proc/81261/map_files" 
@@ -26,13 +26,13 @@ struct Cli {
     /// Name of the file/folder to search
     name: String,
 
-    /// Directories where you want to search. 
+    /// Directories where you want to search
     /// 
-    /// If provided, hunt will only search there. 
+    /// If provided, hunt will only search there
     /// 
-    /// These directories are completely different for hunt, so if one is nested into other the search will be done two times:
-    /// 
-    /// e.g. "hunt somefile / /home" will search in the root directory, and because /home is inside it, /home will be traversed two times.
+    /// These directories are treated independently, so if one is nested into another the search will be done two times:
+    ///
+    /// e.g. "hunt somefile /home/user /home/user/downloads" will search in the home directory, and because /home/user/downloads is inside it, /downloads will be traversed two times
     #[clap(required = false)]
     limit_to_dirs: Vec<String>,
 }
