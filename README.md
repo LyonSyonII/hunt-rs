@@ -85,6 +85,10 @@ Search a file named "notfolder"
     
     hunt -t=f notfolder
 
+Remove all files named "SomeFile"
+
+    hunt -s -e SomeFile | xargs rm -r
+
 ## Why I made it?
 I found I used the `find` command just to search one file, so I wanted a simpler and faster option.
 
