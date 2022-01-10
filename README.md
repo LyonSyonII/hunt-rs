@@ -27,6 +27,9 @@ If you're already in one of these directories, "current_dir" will be skipped.
     -v, --verbose  Print verbose output
                    It'll show all errors found: e.g. "Could not read /proc/81261/map_files"
 
+    -s, --simple   Prints without formatting (without "Contains:" and "Exact:")
+                   Useful for pairing it with other commands like xargs
+
 ### Args
     <NAME>  Name of the file/folder to search
     

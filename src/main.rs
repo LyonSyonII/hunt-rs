@@ -45,6 +45,10 @@ struct Cli {
     /// e.g. "Could not read /proc/81261/map_files"
     #[clap(short, long)]
     verbose: bool,
+    
+    /// Prints without formatting (without "Contains:" and "Exact:")
+    #[clap(short, long)]
+    simple: bool,
 
     /// Only files that start with this will be found
     #[clap(long = "starts")]
@@ -134,7 +138,7 @@ fn search_dir(
     // If name contains search, print it
     else if !exact && ftype && n.contains(name) && n.starts_with(starts) && n.ends_with(ends) {
         if first {
-            println!("Contains:\n{}\n", path.to_string_lossy());
+            println!("{}\n", path.to_string_lossy());
             std::process::exit(0)
         } else {
             append_var(&mut buffer.lock().unwrap().1, &path)
@@ -190,7 +194,7 @@ fn main() {
     let starts = cli.starts_with.unwrap_or_default();
     let ends = cli.ends_with.unwrap_or_default();
     let ftype = cli.file_type.into();
-    
+
     let name = if let Some(n) = cli.name {
         if n == "." || n.contains('/') {
             cli.limit_to_dirs.insert(0, n);
@@ -259,6 +263,11 @@ fn main() {
     };
 
     let (ex, co) = &*buffer.lock().unwrap();
+    
+    if cli.simple {
+        println!("{}{}", co, ex);
+        return;
+    }
 
     if ex.is_empty() && co.is_empty() {
         println!("File not found\n");
@@ -267,7 +276,7 @@ fn main() {
             println!("Contains:\n{}", co);
             println!("Exact:");
         }
-
+        
         println!("{}", ex);
     }
 }
