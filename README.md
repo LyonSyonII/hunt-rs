@@ -60,8 +60,9 @@ Results on other systems may vary, so take this comparisons as a guide.
 (All benchmarks have been done multiple times and the average has been taken)
 
 ### Searching file in ~/
-#### Hunt
 Find only first occurrence of a heavily nested file from the home directory.
+
+#### Hunt
 
 ```
 ~ ❯ time hunt -f -e SomeFile ~/

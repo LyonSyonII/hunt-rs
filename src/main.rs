@@ -11,7 +11,7 @@ struct Cli {
     /// Stop when first occurrence is found
     #[clap(short, long)]
     first: bool,
-
+    
     /// Only search for exactly matching occurrences
     #[clap(short, long)]
     exact: bool,
@@ -22,7 +22,15 @@ struct Cli {
     /// e.g. "Could not read /proc/81261/map_files" 
     #[clap(short, long)]
     verbose: bool,
-
+    
+    /// Only files that start with this will be found
+    #[clap(long = "starts")]
+    starts_with: Option<String>,
+    
+    /// Only files that end with this will be found
+    #[clap(long = "ends")]
+    ends_with: Option<String>,
+        
     /// Name of the file/folder to search
     name: String,
 
@@ -50,13 +58,15 @@ fn append_var(var: &str, txt: &PathBuf) {
     std::env::set_var(var, val);
 }
 
-fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool, limit: bool, verbose: bool) {
+fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str), first: bool, exact: bool, limit: bool, verbose: bool) {
     // Get entry name
     let n = entry.file_name();
     let n = n.to_string_lossy();
     let path = entry.path();
 
-    if n == *name {
+    let (name, starts, ends) = search;
+
+    if n == *name && n.starts_with(starts) && n.ends_with(ends) {
         if first {
             println!("{}\n", path.to_string_lossy());
             std::process::exit(0)
@@ -65,7 +75,7 @@ fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool,
         }
     }
     // If name contains search, print it
-    else if !exact && n.contains(name) {
+    else if !exact && n.contains(name) && n.starts_with(starts) && n.ends_with(ends) {
         append_var(CONTAINS, &path)
     }
 
@@ -78,20 +88,22 @@ fn search_dir(entry: std::fs::DirEntry, name: &String, first: bool, exact: bool,
         if let Ok(read) = std::fs::read_dir(&path) {
             read.par_bridge().for_each(|entry| {
                 if let Ok(e) = entry {
-                    search_dir(e, &name, first, exact, limit, verbose);
+                    search_dir(e, search, first, exact, limit, verbose);
                 }
             })
         } else if verbose {
             eprintln!("Could not read {:?}", path);
         }
+    } else if verbose {
+        eprintln!("Could not get file type for {:?}", entry);
     }
 }
 
-fn search(dir: &PathBuf, name: &String, first: bool, exact: bool, limit: bool, verbose: bool) {
+fn search(dir: &PathBuf, search: (&str, &str, &str), first: bool, exact: bool, limit: bool, verbose: bool) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.par_bridge().for_each(|entry| {
             if let Ok(e) = entry {
-                search_dir(e, &name, first, exact, limit, verbose);
+                search_dir(e, search, first, exact, limit, verbose);
             }
         })
     } else if verbose {
@@ -104,8 +116,11 @@ fn main() {
 
     std::env::set_var(EXACT, "");
     std::env::set_var(CONTAINS, "");
-
+    
     let cli = Cli::parse();
+    let name = cli.name;
+    let starts = cli.starts_with.unwrap_or(String::new());
+    let ends = cli.ends_with.unwrap_or(String::new());
 
     if cli.limit_to_dirs.is_empty() {
         let dirs =
@@ -114,17 +129,15 @@ fn main() {
         // If only search for first, do it in order (less expensive to more)
         if cli.first {
             for dir in dirs {
-                search(dir, &cli.name, true, cli.exact, false, cli.verbose);
+                search(dir, (&name, &starts, &ends), true, cli.exact, false, cli.verbose);
             }
         } 
         // If search all occurrences, multithread search
         else {
             dirs.par_bridge().for_each(|dir| {
-                search(dir, &cli.name, false, cli.exact, false, cli.verbose);
+                search(dir, (&name, &starts, &ends), false, cli.exact, false, cli.verbose);
             });
         }
-        
-        
     } else {
         // Check if paths are valid
         let dirs = cli.limit_to_dirs.iter().map(|s| {
@@ -140,7 +153,7 @@ fn main() {
 
         // Search in directories
         dirs.par_bridge().for_each(|dir| {
-            search(&dir, &cli.name, cli.first, cli.exact, true, cli.verbose);
+            search(&dir, (&name, &starts, &ends), cli.first, cli.exact, true, cli.verbose);
         });
     }
 
