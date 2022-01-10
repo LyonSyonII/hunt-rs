@@ -26,7 +26,6 @@ impl From<Option<String>> for FileType {
     }
 }
 
-
 #[derive(Parser, Debug)]
 #[clap(
     name = "Hunt",

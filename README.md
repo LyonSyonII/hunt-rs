@@ -6,12 +6,26 @@ If the --first flag is set, the order on which the file will be searched is [cur
 If you're already in one of these directories, "current_dir" will be skipped.
 
 ## Usage
-    hunt [OPTIONS] <NAME>
+    hunt [OPTIONS] <NAME> <LIMIT_TO_DIRS>...
 
 ### Options
     -e, --exact    Only search for exactly matching occurrences
     -f, --first    Stop when first occurrence is found
     -h, --help     Print help information
+
+        --starts <STARTS_WITH> 
+                   Only files that start with this will be found
+
+        --ends <ENDS_WITH>
+                   Only files that end with this will be found
+
+    -t, --type <FILE_TYPE>
+                   Specifies the type of the file
+                   'f' -> file
+                   'd' -> directory
+
+    -v, --verbose  Print verbose output
+                   It'll show all errors found: e.g. "Could not read /proc/81261/map_files"
 
 ### Args
     <NAME>  Name of the file/folder to search
@@ -23,7 +37,9 @@ If you're already in one of these directories, "current_dir" will be skipped.
             These directories are treated independently, so if one is nested into another the
             search will be done two times:  
             
-            e.g. "hunt somefile /home/user /home/user/downloads" will search in the home directory, and because /home/user/downloads is inside it, /downloads will be traversed two times
+            e.g. "hunt somefile /home/user /home/user/downloads" will search in the home
+            directory, and because /home/user/downloads is inside it, /downloads will be
+            traversed two times
 
 ### Examples
 Search for a specific file on the whole system (hunt will stop once found)  
@@ -58,6 +74,13 @@ Search all files that end with ".exe", start with "M" and contain "wind" in the 
 
     hunt --starts=M --ends=.exe wind ~/.wine
 
+Search a directory named "folder"
+    
+    hunt -t=d folder
+
+Search a file named "notfolder"
+    
+    hunt -t=f notfolder
 
 ## Why I made it?
 I found I used the `find` command just to search one file, so I wanted a simpler and faster option.
