@@ -1,5 +1,5 @@
 # Hunt
-Hunt is a simplified Find command made with Rust.  
+Hunt is a (highly-opinionated) simplified Find command made with Rust.  
 It searches a file/folder by name on the entire drive.
 
 ## Usage
@@ -24,3 +24,5 @@ First check that you have (Rust)[https://www.rust-lang.org/] installed, then run
 ```
 cargo install hunt
 ```
+
+## Benchmarks
