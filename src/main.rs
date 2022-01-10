@@ -228,7 +228,7 @@ fn main() {
     let (ex, co) = &*buffer.lock().unwrap();
 
     if ex.is_empty() && co.is_empty() {
-        println!("File not found.");
+        println!("File not found\n");
     } else {
         if !cli.exact {
             println!("Contains:\n{}", co);
