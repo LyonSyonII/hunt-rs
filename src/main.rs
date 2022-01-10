@@ -190,7 +190,7 @@ fn main() {
     let starts = cli.starts_with.unwrap_or_default();
     let ends = cli.ends_with.unwrap_or_default();
     let ftype = cli.file_type.into();
-
+    
     let name = if let Some(n) = cli.name {
         if n == "." || n.contains('/') {
             cli.limit_to_dirs.insert(0, n);
