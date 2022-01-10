@@ -265,7 +265,7 @@ fn main() {
     let (ex, co) = &*buffer.lock().unwrap();
     
     if cli.simple {
-        println!("{}{}", co, ex);
+        print!("{}{}", co, ex);
         return;
     }
 
