@@ -42,6 +42,23 @@ Search file in the downloads and pictures directories
     
     hunt -e SomeFile ~/downloads ~/pictures
 
+Search all files that end with ".exe"
+
+    hunt --ends .exe
+
+Search all files that end with ".exe" in the wine directory
+
+    hunt --ends .exe ~/.wine
+
+Search all files that start with "." (all hidden files)
+
+    hunt --starts .
+
+Search all files that end with ".exe", start with "M" and contain "wind" in the wine directory
+
+    hunt --starts=M --ends=.exe wind ~/.wine
+
+
 ## Why I made it?
 I found I used the `find` command just to search one file, so I wanted a simpler and faster option.
 

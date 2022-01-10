@@ -2,6 +2,31 @@ use clap::Parser;
 use rayon::iter::{ ParallelBridge, ParallelIterator};
 use std::path::{ PathBuf };
 
+enum FileType {
+    Dir,
+    File,
+    All
+}
+
+impl From<Option<String>> for FileType {
+    fn from(s: Option<String>) -> Self {
+        if let Some(s) = s {
+            match s.as_str() {
+                "d" => FileType::Dir,
+                "f" => FileType::File,
+                _ => {
+                    eprintln!("File type {} not recognized.\nPlease use 'f' for files and 'd' for directories.\nSee --help for more information.", s);
+                    std::process::exit(1)
+                }
+            }
+        } else {
+            FileType::All
+        }
+        
+    }
+}
+
+
 #[derive(Parser, Debug)]
 #[clap(
     name = "Hunt",
@@ -30,9 +55,15 @@ struct Cli {
     /// Only files that end with this will be found
     #[clap(long = "ends")]
     ends_with: Option<String>,
+    
+    /// Specifies the type of the file
+    /// 
+    /// 'f' -> file | 'd' -> directory
+    #[clap(short = 't', long = "type")]
+    file_type: Option<String>,
         
-    /// Name of the file/folder to search
-    name: String,
+    /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
+    name: Option<String>,
 
     /// Directories where you want to search
     /// 
@@ -58,15 +89,35 @@ fn append_var(var: &str, txt: &PathBuf) {
     std::env::set_var(var, val);
 }
 
-fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str), first: bool, exact: bool, limit: bool, verbose: bool) {
+fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str, &FileType), first: bool, exact: bool, limit: bool, verbose: bool) {
     // Get entry name
     let n = entry.file_name();
     let n = n.to_string_lossy();
     let path = entry.path();
 
-    let (name, starts, ends) = search;
-
-    if n == *name && n.starts_with(starts) && n.ends_with(ends) {
+    let (name, starts, ends, ftype) = search;
+    
+    // Read type of file and check if it should be added to search results
+    let ftype = match ftype {
+        FileType::Dir => {
+            if let Ok(ftype) = entry.file_type() {
+                ftype.is_dir()
+            } else {
+                false
+            }
+        },
+        FileType::File => {
+            if let Ok(ftype) = entry.file_type() {
+                ftype.is_file()
+            } else {
+                false
+            }
+        },
+        FileType::All => true,
+    };
+    
+    // If match is exact, print it
+    if ftype && n == *name && n.starts_with(starts) && n.ends_with(ends) {
         if first {
             println!("{}\n", path.to_string_lossy());
             std::process::exit(0)
@@ -75,8 +126,13 @@ fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str), first: bool,
         }
     }
     // If name contains search, print it
-    else if !exact && n.contains(name) && n.starts_with(starts) && n.ends_with(ends) {
-        append_var(CONTAINS, &path)
+    else if !exact && ftype && n.contains(name) && n.starts_with(starts) && n.ends_with(ends) {
+        if first {
+            println!("Contains:\n{}\n", path.to_string_lossy());
+            std::process::exit(0)
+        } else {
+            append_var(CONTAINS, &path)
+        }
     }
 
     // If entry is directory, search inside it
@@ -99,7 +155,7 @@ fn search_dir(entry: std::fs::DirEntry, search: (&str, &str, &str), first: bool,
     }
 }
 
-fn search(dir: &PathBuf, search: (&str, &str, &str), first: bool, exact: bool, limit: bool, verbose: bool) {
+fn search(dir: &PathBuf, search: (&str, &str, &str, &FileType), first: bool, exact: bool, limit: bool, verbose: bool) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.par_bridge().for_each(|entry| {
             if let Ok(e) = entry {
@@ -117,10 +173,26 @@ fn main() {
     std::env::set_var(EXACT, "");
     std::env::set_var(CONTAINS, "");
     
-    let cli = Cli::parse();
-    let name = cli.name;
+    let mut cli = Cli::parse();
+
     let starts = cli.starts_with.unwrap_or(String::new());
     let ends = cli.ends_with.unwrap_or(String::new());
+    let ftype = cli.file_type.into();
+
+    let name = if let Some(n) = cli.name {
+        if n == "." || n.contains('/') {
+            cli.limit_to_dirs.insert(0, n);
+            String::new()
+        } else {
+            n
+        }
+
+    } else if starts.is_empty() && ends.is_empty() {
+        println!("error: The following required arguments were not provided:\n\t<NAME>\n\nUSAGE:\n\thunt [OPTIONS] <NAME> [LIMIT_TO_DIRS]...\n\nFor more information try --help");
+        std::process::exit(1);
+    } else {
+        String::new()
+    };
 
     if cli.limit_to_dirs.is_empty() {
         let dirs =
@@ -129,13 +201,13 @@ fn main() {
         // If only search for first, do it in order (less expensive to more)
         if cli.first {
             for dir in dirs {
-                search(dir, (&name, &starts, &ends), true, cli.exact, false, cli.verbose);
+                search(dir, (&name, &starts, &ends, &ftype), true, cli.exact, false, cli.verbose);
             }
         } 
         // If search all occurrences, multithread search
         else {
             dirs.par_bridge().for_each(|dir| {
-                search(dir, (&name, &starts, &ends), false, cli.exact, false, cli.verbose);
+                search(dir, (&name, &starts, &ends, &ftype), false, cli.exact, false, cli.verbose);
             });
         }
     } else {
@@ -153,9 +225,9 @@ fn main() {
 
         // Search in directories
         dirs.par_bridge().for_each(|dir| {
-            search(&dir, (&name, &starts, &ends), cli.first, cli.exact, true, cli.verbose);
+            search(&dir, (&name, &starts, &ends, &ftype), cli.first, cli.exact, true, cli.verbose);
         });
-    }
+    };
 
     let ex = std::env::var(EXACT).unwrap();
     let co = std::env::var(CONTAINS).unwrap();
