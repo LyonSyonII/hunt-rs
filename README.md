@@ -5,7 +5,7 @@
 By default it searches a file/folder in the entire drive and divides the result between exact matches and ones that only contain the query.  
 Results will be sorted alphabetically.
 
-For example, `hunt SomeFile` will search "SomeFile" from the root directory, and an output could be:
+For example, `hunt SomeFile` will search "SomeFile" from the root directory, and the output could be:
     
     Contains:
     /SomeFileIsHere
