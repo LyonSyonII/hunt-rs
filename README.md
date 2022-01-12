@@ -1,5 +1,7 @@
 # Hunt
-Hunt is a (highly-opinionated) simplified Find command made with Rust.  
+[![Crates.io](https://img.shields.io/crates/v/fts.svg)](https://crates.io/crates/fts)
+
+A (highly-opinionated) simplified Find command made with Rust.  
 It searches a file/folder by name on the entire drive, collecting the exact matches and the ones that contain the query.  
 Search results will be sorted alphabetically.
 
