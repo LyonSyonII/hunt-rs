@@ -6,14 +6,14 @@ repository = "https://github.com/LyonSyonII/hunt-rs"
 keywords = ["algorithms", "filesystem"]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
-version = "1.5.1"
+version = "1.5.2"
 authors = ["Liam G <l.garriga.r@tutanota.com>"]
 edition = "2021"
 
 [dependencies]
-clap = { version = "3.0.5", features = ["derive"] }
+clap = { version = "3.0.7", features = ["derive"] }
 dirs = "4.0.0"
-rayon = "1.5.2"
+rayon = "1.5.1"
 lazy_static = "1.4.0"
 indexmap = "1.8.0"
 parking_lot = "0.11.2"
