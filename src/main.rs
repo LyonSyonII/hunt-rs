@@ -353,6 +353,8 @@ fn main() {
 // Utility functions
 
 fn sort_results(sort: &mut String) -> String {
+    if sort.is_empty() { return String::new(); }
+    
     let mut sort = sort.par_split('\n').collect::<Vec<&str>>();
     sort.par_sort_unstable();
     let mut sort = sort.join("\n");
