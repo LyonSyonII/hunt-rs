@@ -1,5 +1,5 @@
 # Hunt
-[![Crates.io](https://img.shields.io/crates/v/fts.svg)](https://crates.io/crates/fts)
+[![Crates.io](https://img.shields.io/crates/v/fts.svg)](https://crates.io/crates/hunt)
 
 A (highly-opinionated) simplified Find command made with Rust.  
 It searches a file/folder by name on the entire drive, collecting the exact matches and the ones that contain the query.  
