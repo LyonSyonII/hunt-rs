@@ -1,1 +1,5 @@
 /target
+flamegraph.svg
+perf.data
+perf.data.old
+search_db.rs

@@ -2,7 +2,7 @@
 Hunt is a (highly-opinionated) simplified Find command made with Rust.  
 It searches a file/folder by name on the entire drive.
 
-If the --first flag is set, the order on which the file will be searched is [current_dir, home_dir, root].  
+If the --first flag is set, the order in which the file will be searched is [current_dir, home_dir, root].  
 If you're already in one of these directories, "current_dir" will be skipped.
 
 ## Usage
