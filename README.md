@@ -10,13 +10,15 @@ If you're already in one of these directories, "current_dir" will be skipped.
 
 ### Options
     -e, --exact    Only search for exactly matching occurrences
+    
     -f, --first    Stop when first occurrence is found
-    -h, --help     Print help information
 
-        --starts <STARTS_WITH> 
+    -i, --ignore <IGNORE_DIRS>
+
+    -S, --starts <STARTS_WITH> 
                    Only files that start with this will be found
-
-        --ends   <ENDS_WITH>
+        
+    -E, --ends   <ENDS_WITH>
                    Only files that end with this will be found
 
     -t, --type   <FILE_TYPE>
@@ -26,9 +28,11 @@ If you're already in one of these directories, "current_dir" will be skipped.
 
     -v, --verbose  Print verbose output
                    It'll show all errors found: e.g. "Could not read /proc/81261/map_files"
-
+    
     -s, --simple   Prints without formatting (without "Contains:" and "Exact:")
                    Useful for pairing it with other commands like xargs
+
+        --help     Print help information
 
 ### Args
     <NAME>  Name of the file/folder to search
@@ -45,49 +49,49 @@ If you're already in one of these directories, "current_dir" will be skipped.
             traversed two times
 
 ### Examples
-Search for a specific file on the whole system (hunt will stop once found)  
+* Search for a specific file on the whole system (hunt will stop once found)  
     
-    hunt -f -e SomeFile
+        hunt -f -e SomeFile
 
-Search for files containing "SomeFile"
-
-    hunt SomeFile
-
-Search file in the home directory
-
-    hunt -e SomeFile ~/
-
-Search file in the downloads and pictures directories
+* Search for files containing "SomeFile"
     
-    hunt -e SomeFile ~/downloads ~/pictures
+        hunt SomeFile
 
-Search all files that end with ".exe"
-
-    hunt --ends .exe
-
-Search all files that end with ".exe" in the wine directory
-
-    hunt --ends .exe ~/.wine
-
-Search all files that start with "." (all hidden files)
-
-    hunt --starts .
-
-Search all files that end with ".exe", start with "M" and contain "wind" in the wine directory
-
-    hunt --starts=M --ends=.exe wind ~/.wine
-
-Search a directory named "folder"
+* Search file in the home directory
     
-    hunt -t=d folder
+        hunt -e SomeFile ~/
 
-Search a file named "notfolder"
+* Search file in the downloads and pictures directories
     
-    hunt -t=f notfolder
+        hunt -e SomeFile ~/downloads ~/pictures
 
-Remove all files named "SomeFile"
+* Search all files that end with ".exe"
+    
+        hunt --ends .exe
 
-    hunt -s -e SomeFile | xargs rm -r
+* Search all files that end with ".exe" in the wine directory
+    
+        hunt --ends .exe ~/.wine
+
+* Search all files that start with "." (all hidden files)
+    
+        hunt --starts .
+
+* Search all files that end with ".exe", start with "M" and contain "wind" in the wine directory
+
+        hunt --starts=M --ends=.exe wind ~/.wine
+
+* Search a directory named "folder"
+    
+        hunt -t=d folder
+
+* Search a file named "notfolder"
+    
+        hunt -t=f notfolder
+
+* Remove all files named "SomeFile"
+        
+        hunt -s -e SomeFile | xargs rm -r
 
 ## Why I made it?
 I found I used the `find` command just to search one file, so I wanted a simpler and faster option.
@@ -97,22 +101,22 @@ Hunt is multithreaded, so it's a lot faster than `find`, and more reliable than 
 ## Installation
 First check that you have [Rust](https://www.rust-lang.org/) installed, then run
 
-```
-cargo install hunt
-```
+    cargo install hunt
 
 ## Benchmarks
 This benchmarks are done in a system with approximately 2,762,223 files, with a Network Drive and an external one.  
 Results on other systems may vary, so take this comparisons as a guide.  
-(All benchmarks have been done multiple times and the average has been taken)
+(All benchmarks have been done multiple times and the average has been taken, assume that the filesystem is in cache)
 
 ### Searching file in ~/
-Find only first occurrence of a heavily nested file from the home directory.
+Find only first occurrence of a heavily nested file in a hidden folder from the home directory.
 
 #### Hunt
-
+-f => --first, hunt will stop when first occurrence is found.  
+-e => --exact, hunt will only search for files/folders named "SomeFile", names that only contain the pattern will be skipped.  
+-h => --hidden, hunt will search all files, even hidden ones.
 ```
-~ ❯ time hunt -f -e SomeFile ~/
+~ ❯ time hunt -f -e -h SomeFile ~/
 /home/lyon/.wine/drive_c/Program Files (x86)/Internet Explorer/SomeFile
 
  
@@ -157,11 +161,11 @@ Executed in  177,23 millis    fish           external
 ```
 
 ### Searching all files that contain SomeFile
-Find all occurrences of "SomeFile" from the root directory.
+Find all occurrences of "SomeFile" from the root directory (worst case scenario, checking all files in the system). 
 
 #### Hunt
 ```
-/ ❯ time hunt SomeFile
+/ ❯ time hunt -h SomeFile
 Contains:
 /home/lyon/Downloads/abcdefgSomeFileeee
 /SomeFileIsHere

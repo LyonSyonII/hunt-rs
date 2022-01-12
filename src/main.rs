@@ -1,7 +1,12 @@
+// TODO: Update documentation with new flags (--hidden, --ignore)
+// TODO: Upload updated package
+// TODO: Upload updated benchmarks
+
 use clap::Parser;
 use parking_lot::Mutex;
-use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::path::{Path, PathBuf};
+use rayon::{ iter::{ParallelBridge, ParallelIterator}, slice::ParallelSliceMut, str::ParallelString };
+use std::{path::{Path, PathBuf}};
+
 enum FileType {
     Dir,
     File,
@@ -35,7 +40,9 @@ struct Cli {
     #[clap(short, long)]
     first: bool,
 
-    /// Only search for exactly matching occurrences
+    /// Only search for exactly matching occurrences, any file only containing the query will be skipped 
+    /// 
+    /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the query. 
     #[clap(short, long)]
     exact: bool,
 
@@ -49,13 +56,19 @@ struct Cli {
     /// Prints without formatting (without "Contains:" and "Exact:")
     #[clap(short, long)]
     simple: bool,
+    
+    /// If enabled, it searches inside hidden directories
+    /// 
+    /// If not enabled, hidden directories (starting with '.'), "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit" will be skipped
+    #[clap(short, long)]
+    hidden: bool,
 
     /// Only files that start with this will be found
-    #[clap(long = "starts")]
+    #[clap(short = 'S', long = "starts")]
     starts_with: Option<String>,
 
     /// Only files that end with this will be found
-    #[clap(long = "ends")]
+    #[clap(short = 'E', long = "ends")]
     ends_with: Option<String>,
 
     /// Specifies the type of the file
@@ -63,6 +76,12 @@ struct Cli {
     /// 'f' -> file | 'd' -> directory
     #[clap(short = 't', long = "type")]
     file_type: Option<String>,
+    
+    /// Ignores this directories. The format is:
+    /// 
+    /// -i dir1,dir2,dir3,...
+    #[clap(short = 'i', long = "ignore", parse(try_from_str = parse_ignore_dirs))]
+    ignore_dirs: Option<std::collections::HashSet<PathBuf>>,
 
     /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
     name: Option<String>,
@@ -76,6 +95,11 @@ struct Cli {
     /// e.g. "hunt somefile /home/user /home/user/downloads" will search in the home directory, and because /home/user/downloads is inside it, /downloads will be traversed two times
     #[clap(required = false)]
     limit_to_dirs: Vec<String>,
+}
+
+fn parse_ignore_dirs(inp: &str) -> Result<std::collections::HashSet<PathBuf>, std::string::String> {
+    let inp = inp.trim().replace(' ', "");
+    Ok(std::collections::HashSet::from_iter(inp.split(',').map(|s| s.into())))
 }
 
 struct Search<'a> {
@@ -96,21 +120,24 @@ impl Search<'_> {
     }
 }
 
-#[derive(Clone, Copy)]
-struct Args {
+struct Args<'a> {
     first: bool,
     exact: bool,
     limit: bool,
     verbose: bool,
+    hidden: bool,
+    ignore: &'a Option<std::collections::HashSet<PathBuf>>
 }
 
-impl Args {
-    fn new(first: bool, exact: bool, limit: bool, verbose: bool) -> Args {
+impl Args<'_> {
+    fn new(first: bool, exact: bool, limit: bool, verbose: bool, hidden: bool, ignore: &Option<std::collections::HashSet<PathBuf>>) -> Args {
         Args {
             first,
             exact,
             limit,
             verbose,
+            hidden,
+            ignore
         }
     }
 }
@@ -123,6 +150,7 @@ lazy_static::lazy_static! {
     static ref HOME_DIR: PathBuf = dirs::home_dir().expect("Home dir could not be read");
     static ref ROOT_DIR: PathBuf = PathBuf::from("/");
     static ref BUFFER: Buffer = Mutex::new((String::new(), String::new()));
+    static ref IGNORE_PATHS: std::collections::HashSet<PathBuf> = std::collections::HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(|p| p.into()));
 }
 
 type Buffer = Mutex<(String, String)>;
@@ -132,14 +160,25 @@ fn append_var(var: &mut String, txt: &Path) {
     var.push('\n');
 }
 
-fn search_dir(entry: std::fs::DirEntry, search: &Search, args: Args) {
+fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     // Get entry name
     let n = entry.file_name();
     let n = n.to_string_lossy();
     let path = entry.path();
+    let path = path.as_path();
 
     let (name, starts, ends, ftype) = (search.name, search.starts, search.ends, search.ftype);
-    let (first, exact, limit, verbose) = (args.first, args.exact, args.limit, args.verbose);
+    let (first, exact, limit, verbose, hidden, ignore) = (args.first, args.exact, args.limit, args.verbose, args.hidden, args.ignore);
+    
+    if !hidden && (n.starts_with('.') || IGNORE_PATHS.contains(path)) {
+        return;
+    }
+
+    if let Some(ignore) = ignore {
+        if ignore.contains(path) {
+            return;
+        }
+    }
 
     // Read type of file and check if it should be added to search results
     let ftype = match ftype {
@@ -166,7 +205,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: Args) {
             println!("{}\n", path.to_string_lossy());
             std::process::exit(0)
         } else {
-            append_var(&mut BUFFER.lock().0, &path)
+            append_var(&mut BUFFER.lock().0, path)
         }
     }
     // If name contains search, print it
@@ -175,7 +214,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: Args) {
             println!("{}\n", path.to_string_lossy());
             std::process::exit(0)
         } else {
-            append_var(&mut BUFFER.lock().1, &path)
+            append_var(&mut BUFFER.lock().1, path)
         }
     }
 
@@ -184,7 +223,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: Args) {
         if !ftype.is_dir() || ((path == *CURRENT_DIR || path == *HOME_DIR) && !limit) {
             return;
         }
-
+        
         if let Ok(read) = std::fs::read_dir(&path) {
             read.par_bridge().for_each(|entry| {
                 if let Ok(e) = entry {
@@ -203,7 +242,7 @@ fn search_path(dir: &std::path::Path, search: Search, args: Args) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.par_bridge().for_each(|entry| {
             if let Ok(e) = entry {
-                search_dir(e, &search, args);
+                search_dir(e, &search, &args);
             }
         })
     } else if args.verbose {
@@ -233,14 +272,14 @@ fn main() {
 
     if cli.limit_to_dirs.is_empty() {
         let dirs = IndexSet::from([&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR]).into_iter();
-
+        
         // If only search for first, do it in order (less expensive to more)
         if cli.first {
             for dir in dirs {
                 search_path(
                     dir,
                     Search::new(&name, &starts, &ends, &ftype),
-                    Args::new(true, cli.exact, false, cli.verbose),
+                    Args::new(true, cli.exact, false, cli.verbose, cli.hidden, &cli.ignore_dirs),
                 );
             }
         }
@@ -250,7 +289,7 @@ fn main() {
                 search_path(
                     dir,
                     Search::new(&name, &starts, &ends, &ftype),
-                    Args::new(false, cli.exact, false, cli.verbose),
+                    Args::new(false, cli.exact, false, cli.verbose, cli.hidden, &cli.ignore_dirs),
                 );
             });
         }
@@ -270,18 +309,19 @@ fn main() {
             search_path(
                 &dir,
                 Search::new(&name, &starts, &ends, &ftype),
-                Args::new(cli.first, cli.exact, true, cli.verbose),
+                Args::new(cli.first, cli.exact, true, cli.verbose, cli.hidden, &cli.ignore_dirs),
             );
         });
     };
-
-    let (ex, co) = &*BUFFER.lock();
+    
+    let (ex, co) = &mut *BUFFER.lock();
+    let (ex, co) = (sort_results(ex), sort_results(co));
 
     if cli.simple {
         print!("{}{}", co, ex);
         return;
     }
-
+    
     if ex.is_empty() && co.is_empty() {
         println!("File not found\n");
     } else {
@@ -292,4 +332,12 @@ fn main() {
 
         println!("{}", ex);
     }
+}
+
+// Utility functions
+
+fn sort_results(sort: &mut String) -> String {
+    let mut sort = sort.par_split('\n').collect::<Vec<&str>>();
+    sort.par_sort_unstable();
+    sort.join("\n")
 }
