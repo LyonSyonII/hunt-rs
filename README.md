@@ -1,9 +1,9 @@
 # Hunt
 [![Crates.io](https://img.shields.io/crates/v/hunt?color=orange)](https://crates.io/crates/hunt)
 
-A (highly-opinionated) simplified Find command made with Rust.  
-It searches a file/folder by name on the entire drive, collecting the exact matches and the ones that contain the query.  
-Search results will be sorted alphabetically.
+**A *highly-opinionated* simplified Find command made with Rust.**  
+By default it searches a file/folder in the entire drive and divides the result between exact matches and ones that only contain the query.  
+Results will be sorted alphabetically.
 
 For example, `hunt SomeFile` will search "SomeFile" from the root directory, and an output could be:
     
@@ -14,11 +14,6 @@ For example, `hunt SomeFile` will search "SomeFile" from the root directory, and
 
     Exact:
     /home/lyon/SomeFile
-
-If the --first flag is set, the order in which the file will be searched is [current_dir, home_dir, root].  
-If you're already in one of these directories, "current_dir" will be skipped.
-
-If the --hidden flag is **not** set, hidden files/directories will be skipped, as well as this ones: ["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit"]
 
 ## Usage
     hunt [OPTIONS] <NAME> <LIMIT_TO_DIRS>...
@@ -62,6 +57,11 @@ If the --hidden flag is **not** set, hidden files/directories will be skipped, a
                    Useful for pairing it with other commands like xargs
 
         --help     Print help information
+        
+If the --first flag is set, the order in which the file will be searched is [current_dir, home_dir, root].  
+If you're already in one of these directories, "current_dir" will be skipped.
+
+If the --hidden flag is **not** set, hidden files/directories will be skipped, as well as: /proc, /root, /boot, /dev, /lib, /lib64, /lost+found, /run, /sbin, /sys, /tmp, /var/tmp, /var/lib, /var/log, /var/db, /var/cache, /etc/pacman.d, /etc/sudoers.d and /etc/audit
 
 ### Args
     <NAME>  Name of the file/folder to search
