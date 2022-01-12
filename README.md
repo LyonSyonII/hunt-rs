@@ -18,6 +18,8 @@ For example, `hunt SomeFile` will search "SomeFile" from the root directory, and
 ## Usage
     hunt [OPTIONS] <NAME> <LIMIT_TO_DIRS>...
 
+By default, searches are case-insensitive, unless \<NAME> contains an uppercase letter.
+
 ### Options
     -e, --exact    Only search for exactly matching occurrences, any file only 
                    containing the query will be skipped
@@ -65,6 +67,7 @@ If the --hidden flag is **not** set, hidden files/directories will be skipped, a
 
 ### Args
     <NAME>  Name of the file/folder to search
+            By default, searches are case-insensitive, unless the query contains an uppercase letter.
     
     <LIMIT_TO_DIRS>...
             Directories where you want to search
