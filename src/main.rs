@@ -1,6 +1,4 @@
-// TODO: Update documentation with new flags (--hidden, --ignore)
 // TODO: Upload updated package
-// TODO: Upload updated benchmarks
 
 use clap::Parser;
 use parking_lot::Mutex;

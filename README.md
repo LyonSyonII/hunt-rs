@@ -1,19 +1,46 @@
 # Hunt
 Hunt is a (highly-opinionated) simplified Find command made with Rust.  
-It searches a file/folder by name on the entire drive.
+It searches a file/folder by name on the entire drive, collecting the exact matches and the ones that contain the query.  
+Search results will be sorted alphabetically.
+
+For example, `hunt SomeFile` will search "SomeFile" from the root directory, and an output could be:
+    
+    Contains:
+    /SomeFileIsHere
+    /home/lyon/Downloads/abcdefgSomeFileeee
+    /mnt/Files/--SomeFile--
+
+    Exact:
+    /home/lyon/SomeFile
 
 If the --first flag is set, the order in which the file will be searched is [current_dir, home_dir, root].  
 If you're already in one of these directories, "current_dir" will be skipped.
+
+If the --hidden flag is **not** set, hidden files/directories will be skipped, as well as this ones: ["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit"]
 
 ## Usage
     hunt [OPTIONS] <NAME> <LIMIT_TO_DIRS>...
 
 ### Options
-    -e, --exact    Only search for exactly matching occurrences
-    
+    -e, --exact    Only search for exactly matching occurrences, any file only 
+                   containing the query will be skipped
+            
+                    e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, 
+                    as its name contains more letters than the search.
+
     -f, --first    Stop when first occurrence is found
 
+    -h, --hidden   If enabled, it searches inside hidden and ignored directories.
+
+                   The list of ignored directories is:
+                   "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", 
+                   "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp",
+                   "/var/lib", "/var/log", "/var/db", "/var/cache", 
+                   "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit"
+
     -i, --ignore <IGNORE_DIRS>
+                   Search ignores this directories. The format is:
+                   -i dir1,dir2,dir3,... (without spaces)
 
     -S, --starts <STARTS_WITH> 
                    Only files that start with this will be found
@@ -112,9 +139,9 @@ Results on other systems may vary, so take this comparisons as a guide.
 Find only first occurrence of a heavily nested file in a hidden folder from the home directory.
 
 #### Hunt
--f => --first, hunt will stop when first occurrence is found.  
--e => --exact, hunt will only search for files/folders named "SomeFile", names that only contain the pattern will be skipped.  
--h => --hidden, hunt will search all files, even hidden ones.
+-f -> --first, hunt will stop when first occurrence is found.  
+-e -> --exact, hunt will only search for files/folders named "SomeFile", names that only contain the pattern will be skipped.  
+-h -> --hidden, hunt will search all files, even hidden ones.
 ```
 ~ ❯ time hunt -f -e -h SomeFile ~/
 /home/lyon/.wine/drive_c/Program Files (x86)/Internet Explorer/SomeFile
