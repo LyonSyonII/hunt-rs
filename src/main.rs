@@ -124,18 +124,20 @@ struct Args<'a> {
     limit: bool,
     verbose: bool,
     hidden: bool,
-    ignore: &'a Option<std::collections::HashSet<PathBuf>>
+    ignore: &'a Option<std::collections::HashSet<PathBuf>>,
+    case_sensitive: bool,
 }
 
 impl Args<'_> {
-    fn new(first: bool, exact: bool, limit: bool, verbose: bool, hidden: bool, ignore: &Option<std::collections::HashSet<PathBuf>>) -> Args {
+    fn new(first: bool, exact: bool, limit: bool, verbose: bool, hidden: bool, ignore: &Option<std::collections::HashSet<PathBuf>>, case_sensitive: bool) -> Args {
         Args {
             first,
             exact,
             limit,
             verbose,
             hidden,
-            ignore
+            ignore,
+            case_sensitive,
         }
     }
 }
@@ -149,6 +151,7 @@ lazy_static::lazy_static! {
     static ref ROOT_DIR: PathBuf = PathBuf::from("/");
     static ref BUFFER: Buffer = Mutex::new((String::new(), String::new()));
     static ref IGNORE_PATHS: std::collections::HashSet<PathBuf> = std::collections::HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(|p| p.into()));
+    static ref FOUND: Mutex<bool> = Mutex::new(false);
 }
 
 type Buffer = Mutex<(String, String)>;
@@ -161,7 +164,11 @@ fn append_var(var: &mut String, txt: &Path) {
 fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     // Get entry name
     let n = entry.file_name();
-    let n = n.to_string_lossy();
+    let n = match args.case_sensitive { 
+        true => n.to_string_lossy().into(),
+        false => n.to_string_lossy().to_ascii_lowercase()
+    };
+
     let path = entry.path();
     let path = path.as_path();
 
@@ -200,6 +207,10 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     // If match is exact, print it
     if ftype && n == *name && n.starts_with(starts) && n.ends_with(ends) {
         if first {
+            let mut found = FOUND.lock();
+            if *found { return; }
+
+            *found = true;
             println!("{}\n", path.to_string_lossy());
             std::process::exit(0)
         } else {
@@ -209,6 +220,10 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     // If name contains search, print it
     else if !exact && ftype && n.contains(name) && n.starts_with(starts) && n.ends_with(ends) {
         if first {
+            let mut found = FOUND.lock();
+            if *found { return; }
+
+            *found = true;
             println!("{}\n", path.to_string_lossy());
             std::process::exit(0)
         } else {
@@ -268,6 +283,8 @@ fn main() {
         String::new()
     };
 
+    let c_sensitive = name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
+    
     if cli.limit_to_dirs.is_empty() {
         let dirs = IndexSet::from([&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR]).into_iter();
         
@@ -277,7 +294,7 @@ fn main() {
                 search_path(
                     dir,
                     Search::new(&name, &starts, &ends, &ftype),
-                    Args::new(true, cli.exact, false, cli.verbose, cli.hidden, &cli.ignore_dirs),
+                    Args::new(true, cli.exact, false, cli.verbose, cli.hidden, &cli.ignore_dirs, c_sensitive),
                 );
             }
         }
@@ -287,7 +304,7 @@ fn main() {
                 search_path(
                     dir,
                     Search::new(&name, &starts, &ends, &ftype),
-                    Args::new(false, cli.exact, false, cli.verbose, cli.hidden, &cli.ignore_dirs),
+                    Args::new(false, cli.exact, false, cli.verbose, cli.hidden, &cli.ignore_dirs, c_sensitive),
                 );
             });
         }
@@ -307,7 +324,7 @@ fn main() {
             search_path(
                 &dir,
                 Search::new(&name, &starts, &ends, &ftype),
-                Args::new(cli.first, cli.exact, true, cli.verbose, cli.hidden, &cli.ignore_dirs),
+                Args::new(cli.first, cli.exact, true, cli.verbose, cli.hidden, &cli.ignore_dirs, c_sensitive),
             );
         });
     };
@@ -324,18 +341,21 @@ fn main() {
         println!("File not found\n");
     } else {
         if !cli.exact {
-            println!("Contains:\n{}", co);
-            println!("Exact:");
+            println!("Contains:{}", co);
+            print!("Exact:");
         }
 
         println!("{}", ex);
     }
 }
 
+
 // Utility functions
 
 fn sort_results(sort: &mut String) -> String {
     let mut sort = sort.par_split('\n').collect::<Vec<&str>>();
     sort.par_sort_unstable();
-    sort.join("\n")
+    let mut sort = sort.join("\n");
+    sort.push('\n');
+    sort
 }
