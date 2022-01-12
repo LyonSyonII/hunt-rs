@@ -125,9 +125,9 @@ lazy_static::lazy_static! {
     static ref BUFFER: Buffer = Mutex::new((String::new(), String::new()));
 }
 
-type Buffer = Mutex<(std::string::String, std::string::String)>;
+type Buffer = Mutex<(String, String)>;
 
-fn append_var(var: &mut std::string::String, txt: &Path) {
+fn append_var(var: &mut String, txt: &Path) {
     var.push_str(&txt.to_string_lossy());
     var.push('\n');
 }
