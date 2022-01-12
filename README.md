@@ -1,5 +1,6 @@
 # Hunt
 [![Crates.io](https://img.shields.io/crates/v/hunt?color=orange)](https://crates.io/crates/hunt)
+[![Publish](https://github.com/LyonSyonII/hunt-rs/actions/workflows/publish.yml/badge.svg?branch=v1.5.2)](https://github.com/LyonSyonII/hunt-rs/actions/workflows/publish.yml)
 
 **A *highly-opinionated* simplified Find command made with Rust.**  
 By default it searches a file/folder in the entire drive and divides the result between exact matches and ones that only contain the query.  
