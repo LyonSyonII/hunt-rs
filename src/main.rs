@@ -1,9 +1,7 @@
-// TODO: Upload updated package
-
 use clap::Parser;
 use parking_lot::Mutex;
 use rayon::{ iter::{ParallelBridge, ParallelIterator}, slice::ParallelSliceMut, str::ParallelString };
-use std::{path::{Path, PathBuf}};
+use std::{path::{Path, PathBuf}, collections::HashSet};
 
 enum FileType {
     Dir,
@@ -79,7 +77,7 @@ struct Cli {
     /// 
     /// -i dir1,dir2,dir3,...
     #[clap(short = 'i', long = "ignore", parse(try_from_str = parse_ignore_dirs))]
-    ignore_dirs: Option<std::collections::HashSet<PathBuf>>,
+    ignore_dirs: Option<HashSet<PathBuf>>,
 
     /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
     name: Option<String>,
@@ -95,9 +93,9 @@ struct Cli {
     limit_to_dirs: Vec<String>,
 }
 
-fn parse_ignore_dirs(inp: &str) -> Result<std::collections::HashSet<PathBuf>, std::string::String> {
+fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
     let inp = inp.trim().replace(' ', "");
-    Ok(std::collections::HashSet::from_iter(inp.split(',').map(|s| s.into())))
+    Ok(HashSet::from_iter(inp.split(',').map(|s| s.into())))
 }
 
 struct Search<'a> {
@@ -124,12 +122,12 @@ struct Args<'a> {
     limit: bool,
     verbose: bool,
     hidden: bool,
-    ignore: &'a Option<std::collections::HashSet<PathBuf>>,
+    ignore: &'a std::collections::HashSet<PathBuf>,
     case_sensitive: bool,
 }
 
 impl Args<'_> {
-    fn new(first: bool, exact: bool, limit: bool, verbose: bool, hidden: bool, ignore: &Option<std::collections::HashSet<PathBuf>>, case_sensitive: bool) -> Args {
+    fn new(first: bool, exact: bool, limit: bool, verbose: bool, hidden: bool, ignore: &HashSet<PathBuf>, case_sensitive: bool) -> Args {
         Args {
             first,
             exact,
@@ -150,7 +148,7 @@ lazy_static::lazy_static! {
     static ref HOME_DIR: PathBuf = dirs::home_dir().expect("Home dir could not be read");
     static ref ROOT_DIR: PathBuf = PathBuf::from("/");
     static ref BUFFER: Buffer = Mutex::new((String::new(), String::new()));
-    static ref IGNORE_PATHS: std::collections::HashSet<PathBuf> = std::collections::HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(|p| p.into()));
+    static ref IGNORE_PATHS: HashSet<PathBuf> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(|p| p.into()));
     static ref FOUND: Mutex<bool> = Mutex::new(false);
 }
 
@@ -162,6 +160,7 @@ fn append_var(var: &mut String, txt: &Path) {
 }
 
 fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
+
     // Get entry name
     let n = entry.file_name();
     let n = match args.case_sensitive { 
@@ -178,11 +177,9 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     if !hidden && (n.starts_with('.') || IGNORE_PATHS.contains(path)) {
         return;
     }
-
-    if let Some(ignore) = ignore {
-        if ignore.contains(path) {
-            return;
-        }
+    
+    if !ignore.is_empty() && ignore.contains(path) {
+        return;
     }
 
     // Read type of file and check if it should be added to search results
@@ -238,10 +235,8 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
         }
         
         if let Ok(read) = std::fs::read_dir(&path) {
-            read.par_bridge().for_each(|entry| {
-                if let Ok(e) = entry {
-                    search_dir(e, search, args);
-                }
+            read.flatten().par_bridge().for_each(|entry| {
+                search_dir(entry, search, args);
             })
         } else if verbose {
             eprintln!("Could not read {:?}", path);
@@ -251,12 +246,10 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     }
 }
 
-fn search_path(dir: &std::path::Path, search: Search, args: Args) {
+fn search_path(dir: &std::path::Path, search: &Search, args: &Args) {
     if let Ok(read) = std::fs::read_dir(dir) {
-        read.par_bridge().for_each(|entry| {
-            if let Ok(e) = entry {
-                search_dir(e, &search, &args);
-            }
+        read.flatten().par_bridge().for_each(|entry| {
+            search_dir(entry, search, args);
         })
     } else if args.verbose {
         eprintln!("Could not read {:?}", dir);
@@ -265,7 +258,7 @@ fn search_path(dir: &std::path::Path, search: Search, args: Args) {
 
 fn main() {
     use indexmap::IndexSet;
-
+    
     let mut cli = Cli::parse();
 
     let starts = cli.starts_with.unwrap_or_default();
@@ -282,29 +275,33 @@ fn main() {
     } else {
         String::new()
     };
+    let search = Search::new(&name, &starts, &ends, &ftype);
 
     let c_sensitive = name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
+    let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
     
     if cli.limit_to_dirs.is_empty() {
         let dirs = IndexSet::from([&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR]).into_iter();
         
         // If only search for first, do it in order (less expensive to more)
         if cli.first {
+            let args = Args::new(true, cli.exact, false, cli.verbose, cli.hidden, &ignore_dirs, c_sensitive);
             for dir in dirs {
                 search_path(
                     dir,
-                    Search::new(&name, &starts, &ends, &ftype),
-                    Args::new(true, cli.exact, false, cli.verbose, cli.hidden, &cli.ignore_dirs, c_sensitive),
+                    &search,
+                    &args,
                 );
             }
         }
         // If search all occurrences, multithread search
         else {
+            let args = Args::new(false, cli.exact, false, cli.verbose, cli.hidden, &ignore_dirs, c_sensitive);
             dirs.par_bridge().for_each(|dir| {
                 search_path(
                     dir,
-                    Search::new(&name, &starts, &ends, &ftype),
-                    Args::new(false, cli.exact, false, cli.verbose, cli.hidden, &cli.ignore_dirs, c_sensitive),
+                    &search,
+                    &args,
                 );
             });
         }
@@ -318,13 +315,13 @@ fn main() {
         });
         // Remove duplicates
         let dirs = IndexSet::<PathBuf>::from_iter(dirs).into_iter();
-
+        let args = Args::new(cli.first, cli.exact, true, cli.verbose, cli.hidden, &ignore_dirs, c_sensitive);
         // Search in directories
         dirs.par_bridge().for_each(|dir| {
             search_path(
                 &dir,
-                Search::new(&name, &starts, &ends, &ftype),
-                Args::new(cli.first, cli.exact, true, cli.verbose, cli.hidden, &cli.ignore_dirs, c_sensitive),
+                &search,
+                &args,
             );
         });
     };
