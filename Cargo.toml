@@ -17,6 +17,8 @@ rayon = "1.5.1"
 lazy_static = "1.4.0"
 indexmap = "1.8.0"
 parking_lot = "0.11.2"
+jetscii = { version = "0.5.1", features = ["pattern"] }
+aho-corasick = "0.7.18"
 mimalloc = { version = "0.1.17", default-features = false }
 
 [profile.release]

@@ -1,7 +1,14 @@
 use clap::Parser;
 use parking_lot::Mutex;
-use rayon::{ iter::{ParallelBridge, ParallelIterator}, slice::ParallelSliceMut, str::ParallelString };
-use std::{path::{Path, PathBuf}, collections::HashSet};
+use rayon::{
+    iter::{ParallelBridge, ParallelIterator},
+    slice::ParallelSliceMut,
+    str::ParallelString,
+};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 enum FileType {
     Dir,
@@ -36,9 +43,9 @@ struct Cli {
     #[clap(short, long)]
     first: bool,
 
-    /// Only search for exactly matching occurrences, any file only containing the query will be skipped 
-    /// 
-    /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the query. 
+    /// Only search for exactly matching occurrences, any file only containing the query will be skipped
+    ///
+    /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the query.
     #[clap(short, long)]
     exact: bool,
 
@@ -52,9 +59,9 @@ struct Cli {
     /// Prints without formatting (without "Contains:" and "Exact:")
     #[clap(short, long)]
     simple: bool,
-    
+
     /// If enabled, it searches inside hidden directories
-    /// 
+    ///
     /// If not enabled, hidden directories (starting with '.'), "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit" will be skipped
     #[clap(short, long)]
     hidden: bool,
@@ -72,9 +79,9 @@ struct Cli {
     /// 'f' -> file | 'd' -> directory
     #[clap(short = 't', long = "type")]
     file_type: Option<String>,
-    
+
     /// Ignores this directories. The format is:
-    /// 
+    ///
     /// -i dir1,dir2,dir3,...
     #[clap(short = 'i', long = "ignore", parse(try_from_str = parse_ignore_dirs))]
     ignore_dirs: Option<HashSet<PathBuf>>,
@@ -127,7 +134,15 @@ struct Args<'a> {
 }
 
 impl Args<'_> {
-    fn new(first: bool, exact: bool, limit: bool, verbose: bool, hidden: bool, ignore: &HashSet<PathBuf>, case_sensitive: bool) -> Args {
+    fn new(
+        first: bool,
+        exact: bool,
+        limit: bool,
+        verbose: bool,
+        hidden: bool,
+        ignore: &HashSet<PathBuf>,
+        case_sensitive: bool,
+    ) -> Args {
         Args {
             first,
             exact,
@@ -159,31 +174,42 @@ fn append_var(var: &mut String, txt: &Path) {
     var.push('\n');
 }
 
-fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
+fn print_var(var: &mut String, first: bool, path: &Path) {
+    if first {
+        let mut found = FOUND.lock();
+        if *found {
+            return;
+        }
 
+        *found = true;
+        println!("{}\n", path.to_string_lossy());
+        std::process::exit(0)
+    } else {
+        append_var(var, path)
+    }
+}
+
+fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     // Get entry name
     let n = entry.file_name();
-    let n = match args.case_sensitive { 
+    let n = match args.case_sensitive {
         true => n.to_string_lossy().into(),
-        false => n.to_string_lossy().to_ascii_lowercase()
+        false => n.to_string_lossy().to_ascii_lowercase(),
     };
 
     let path = entry.path();
     let path = path.as_path();
 
-    let (name, starts, ends, ftype) = (search.name, search.starts, search.ends, search.ftype);
-    let (first, exact, limit, verbose, hidden, ignore) = (args.first, args.exact, args.limit, args.verbose, args.hidden, args.ignore);
-    
-    if !hidden && (n.starts_with('.') || IGNORE_PATHS.contains(path)) {
+    if !args.hidden && (n.starts_with('.') || IGNORE_PATHS.contains(path)) {
         return;
     }
-    
-    if !ignore.is_empty() && ignore.contains(path) {
+
+    if args.ignore.contains(path) {
         return;
     }
 
     // Read type of file and check if it should be added to search results
-    let ftype = match ftype {
+    let ftype = match search.ftype {
         FileType::Dir => {
             if let Ok(ftype) = entry.file_type() {
                 ftype.is_dir()
@@ -201,47 +227,31 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
         FileType::All => true,
     };
 
-    // If match is exact, print it
-    if ftype && n == *name && n.starts_with(starts) && n.ends_with(ends) {
-        if first {
-            let mut found = FOUND.lock();
-            if *found { return; }
+    let starts = !search.starts.is_empty() || n.starts_with(search.starts);
+    let ends = !search.ends.is_empty() || n.ends_with(search.ends);
 
-            *found = true;
-            println!("{}\n", path.to_string_lossy());
-            std::process::exit(0)
-        } else {
-            append_var(&mut BUFFER.lock().0, path)
-        }
-    }
-    // If name contains search, print it
-    else if !exact && ftype && n.contains(name) && n.starts_with(starts) && n.ends_with(ends) {
-        if first {
-            let mut found = FOUND.lock();
-            if *found { return; }
-
-            *found = true;
-            println!("{}\n", path.to_string_lossy());
-            std::process::exit(0)
-        } else {
-            append_var(&mut BUFFER.lock().1, path)
+    if starts && ends && ftype {
+        if n == search.name {
+            print_var(&mut BUFFER.lock().0, args.first, path);
+        } else if !args.exact && n.contains(search.name) {
+            print_var(&mut BUFFER.lock().1, args.first, path);
         }
     }
 
     // If entry is directory, search inside it
     if let Ok(ftype) = entry.file_type() {
-        if !ftype.is_dir() || ((path == *CURRENT_DIR || path == *HOME_DIR) && !limit) {
+        if !ftype.is_dir() || ((path == *CURRENT_DIR || path == *HOME_DIR) && !args.limit) {
             return;
         }
-        
+
         if let Ok(read) = std::fs::read_dir(&path) {
             read.flatten().par_bridge().for_each(|entry| {
                 search_dir(entry, search, args);
             })
-        } else if verbose {
+        } else if args.verbose {
             eprintln!("Could not read {:?}", path);
         }
-    } else if verbose {
+    } else if args.verbose {
         eprintln!("Could not get file type for {:?}", entry);
     }
 }
@@ -258,7 +268,7 @@ fn search_path(dir: &std::path::Path, search: &Search, args: &Args) {
 
 fn main() {
     use indexmap::IndexSet;
-    
+
     let mut cli = Cli::parse();
 
     let starts = cli.starts_with.unwrap_or_default();
@@ -279,30 +289,38 @@ fn main() {
 
     let c_sensitive = name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
     let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
-    
+
     if cli.limit_to_dirs.is_empty() {
         let dirs = IndexSet::from([&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR]).into_iter();
-        
+
         // If only search for first, do it in order (less expensive to more)
         if cli.first {
-            let args = Args::new(true, cli.exact, false, cli.verbose, cli.hidden, &ignore_dirs, c_sensitive);
+            let args = Args::new(
+                true,
+                cli.exact,
+                false,
+                cli.verbose,
+                cli.hidden,
+                &ignore_dirs,
+                c_sensitive,
+            );
             for dir in dirs {
-                search_path(
-                    dir,
-                    &search,
-                    &args,
-                );
+                search_path(dir, &search, &args);
             }
         }
         // If search all occurrences, multithread search
         else {
-            let args = Args::new(false, cli.exact, false, cli.verbose, cli.hidden, &ignore_dirs, c_sensitive);
+            let args = Args::new(
+                false,
+                cli.exact,
+                false,
+                cli.verbose,
+                cli.hidden,
+                &ignore_dirs,
+                c_sensitive,
+            );
             dirs.par_bridge().for_each(|dir| {
-                search_path(
-                    dir,
-                    &search,
-                    &args,
-                );
+                search_path(dir, &search, &args);
             });
         }
     } else {
@@ -315,17 +333,21 @@ fn main() {
         });
         // Remove duplicates
         let dirs = IndexSet::<PathBuf>::from_iter(dirs).into_iter();
-        let args = Args::new(cli.first, cli.exact, true, cli.verbose, cli.hidden, &ignore_dirs, c_sensitive);
+        let args = Args::new(
+            cli.first,
+            cli.exact,
+            true,
+            cli.verbose,
+            cli.hidden,
+            &ignore_dirs,
+            c_sensitive,
+        );
         // Search in directories
         dirs.par_bridge().for_each(|dir| {
-            search_path(
-                &dir,
-                &search,
-                &args,
-            );
+            search_path(&dir, &search, &args);
         });
     };
-    
+
     let (ex, co) = &mut *BUFFER.lock();
     let (ex, co) = (sort_results(ex), sort_results(co));
 
@@ -333,7 +355,7 @@ fn main() {
         print!("{}{}", co, ex);
         return;
     }
-    
+
     if ex.is_empty() && co.is_empty() {
         println!("File not found\n");
     } else {
@@ -346,12 +368,13 @@ fn main() {
     }
 }
 
-
 // Utility functions
 
 fn sort_results(sort: &mut String) -> String {
-    if sort.is_empty() { return String::new(); }
-    
+    if sort.is_empty() {
+        return String::new();
+    }
+
     let mut sort = sort.par_split('\n').collect::<Vec<&str>>();
     sort.par_sort_unstable();
     let mut sort = sort.join("\n");
