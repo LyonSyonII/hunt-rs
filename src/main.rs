@@ -1,3 +1,4 @@
+use derive_new::new;
 use clap::Parser;
 use parking_lot::Mutex;
 use rayon::{
@@ -105,6 +106,7 @@ fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
     Ok(HashSet::from_iter(inp.split(',').map(|s| s.into())))
 }
 
+#[derive(new)]
 struct Search<'a> {
     name: &'a str,
     starts: &'a str,
@@ -112,47 +114,17 @@ struct Search<'a> {
     ftype: &'a FileType,
 }
 
-impl Search<'_> {
-    fn new<'a>(name: &'a str, starts: &'a str, ends: &'a str, ftype: &'a FileType) -> Search<'a> {
-        Search {
-            name,
-            starts,
-            ends,
-            ftype,
-        }
-    }
-}
-
+#[allow(clippy::too_many_arguments)]
+#[derive(new)]
 struct Args<'a> {
     first: bool,
     exact: bool,
     limit: bool,
     verbose: bool,
+    simple: bool,
     hidden: bool,
     ignore: &'a std::collections::HashSet<PathBuf>,
     case_sensitive: bool,
-}
-
-impl Args<'_> {
-    fn new(
-        first: bool,
-        exact: bool,
-        limit: bool,
-        verbose: bool,
-        hidden: bool,
-        ignore: &HashSet<PathBuf>,
-        case_sensitive: bool,
-    ) -> Args {
-        Args {
-            first,
-            exact,
-            limit,
-            verbose,
-            hidden,
-            ignore,
-            case_sensitive,
-        }
-    }
 }
 
 #[global_allocator]
@@ -169,12 +141,19 @@ lazy_static::lazy_static! {
 
 type Buffer = Mutex<(String, String)>;
 
-fn append_var(var: &mut String, txt: &Path) {
-    var.push_str(&txt.to_string_lossy());
+fn append_var(var: &mut String, txt: &Path, simple: bool) {
+    if simple {
+        var.push('\'');
+        var.push_str(&txt.to_string_lossy());
+        var.push('\'');
+    } else {
+        var.push_str(&txt.to_string_lossy());
+    }
+
     var.push('\n');
 }
 
-fn print_var(var: &mut String, first: bool, path: &Path) {
+fn print_var(var: &mut String, first: bool, path: &Path, simple: bool) {
     if first {
         let mut found = FOUND.lock();
         if *found {
@@ -185,7 +164,7 @@ fn print_var(var: &mut String, first: bool, path: &Path) {
         println!("{}\n", path.to_string_lossy());
         std::process::exit(0)
     } else {
-        append_var(var, path)
+        append_var(var, path, simple)
     }
 }
 
@@ -232,9 +211,9 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
 
     if starts && ends && ftype {
         if n == search.name {
-            print_var(&mut BUFFER.lock().0, args.first, path);
+            print_var(&mut BUFFER.lock().0, args.first, path, args.simple);
         } else if !args.exact && n.contains(search.name) {
-            print_var(&mut BUFFER.lock().1, args.first, path);
+            print_var(&mut BUFFER.lock().1, args.first, path, args.simple);
         }
     }
 
@@ -300,6 +279,7 @@ fn main() {
                 cli.exact,
                 false,
                 cli.verbose,
+                cli.simple,
                 cli.hidden,
                 &ignore_dirs,
                 c_sensitive,
@@ -315,6 +295,7 @@ fn main() {
                 cli.exact,
                 false,
                 cli.verbose,
+                cli.simple,
                 cli.hidden,
                 &ignore_dirs,
                 c_sensitive,
@@ -338,6 +319,7 @@ fn main() {
             cli.exact,
             true,
             cli.verbose,
+            cli.simple,
             cli.hidden,
             &ignore_dirs,
             c_sensitive,
