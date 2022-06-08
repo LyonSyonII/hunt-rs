@@ -6,7 +6,7 @@ repository = "https://github.com/LyonSyonII/hunt-rs"
 keywords = ["algorithms", "filesystem"]
 readme = "README.md"
 license = "MIT OR Apache-2.0"
-version = "1.5.4"
+version = "1.5.5"
 authors = ["Liam G <l.garriga.r@tutanota.com>"]
 edition = "2021"
 
@@ -16,7 +16,7 @@ dirs = "4.0.0"
 rayon = "1.5.1"
 lazy_static = "1.4.0"
 indexmap = "1.8.0"
-parking_lot = "0.11.2"
+parking_lot = "0.12.1"
 derive-new = "0.5.9"
 mimalloc = { version = "0.1.17", default-features = false }
 
