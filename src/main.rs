@@ -1,5 +1,5 @@
 use derive_new::new;
-use clap::Parser;
+use clap::{Parser, Arg};
 use parking_lot::Mutex;
 use rayon::{
     iter::{ParallelBridge, ParallelIterator},
@@ -8,7 +8,7 @@ use rayon::{
 };
 use std::{
     collections::HashSet,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, sync::atomic::AtomicBool,
 };
 
 enum FileType {
@@ -63,9 +63,13 @@ struct Cli {
 
     /// If enabled, it searches inside hidden directories
     ///
-    /// If not enabled, hidden directories (starting with '.'), "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit" will be skipped
+    /// If not enabled, hidden directories (starting with '.') and "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit" will be skipped
     #[clap(short, long)]
     hidden: bool,
+    
+    // /// If enabled, hunt will not update the database if the file is not found
+    // #[clap(short, long="noupdate")]
+    // no_update: bool,
 
     /// Only files that start with this will be found
     #[clap(short = 'S', long = "starts")]
@@ -102,8 +106,8 @@ struct Cli {
 }
 
 fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
-    let inp = inp.trim().replace(' ', "");
-    Ok(HashSet::from_iter(inp.split(',').map(|s| s.into())))
+    let inp = inp.trim().replace(' ', " ");
+    Ok(HashSet::from_iter(inp.split(',').map(PathBuf::from)))
 }
 
 #[derive(new)]
@@ -134,10 +138,11 @@ lazy_static::lazy_static! {
     static ref CURRENT_DIR: PathBuf = std::env::current_dir().expect("Current dir could not be read");
     static ref HOME_DIR: PathBuf = dirs::home_dir().expect("Home dir could not be read");
     static ref ROOT_DIR: PathBuf = PathBuf::from("/");
-    static ref BUFFER: Buffer = Mutex::new((String::new(), String::new()));
-    static ref IGNORE_PATHS: HashSet<PathBuf> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(|p| p.into()));
-    static ref FOUND: Mutex<bool> = Mutex::new(false);
+    static ref IGNORE_PATHS: HashSet<&'static Path> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new));
 }
+
+static BUFFER: Buffer = Mutex::new((String::new(), String::new()));
+static FOUND: AtomicBool = AtomicBool::new(false);
 
 type Buffer = Mutex<(String, String)>;
 
@@ -155,12 +160,12 @@ fn append_var(var: &mut String, txt: &Path, simple: bool) {
 
 fn print_var(var: &mut String, first: bool, path: &Path, simple: bool) {
     if first {
-        let mut found = FOUND.lock();
-        if *found {
+        let found = FOUND.load(std::sync::atomic::Ordering::Relaxed);
+        if found {
             return;
         }
 
-        *found = true;
+        FOUND.store(true, std::sync::atomic::Ordering::Relaxed);
         println!("{}\n", path.to_string_lossy());
         std::process::exit(0)
     } else {
@@ -235,7 +240,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     }
 }
 
-fn search_path(dir: &std::path::Path, search: &Search, args: &Args) {
+fn search_path(dir: &Path, search: &Search, args: &Args) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.flatten().par_bridge().for_each(|entry| {
             search_dir(entry, search, args);
@@ -246,8 +251,6 @@ fn search_path(dir: &std::path::Path, search: &Search, args: &Args) {
 }
 
 fn main() {
-    use indexmap::IndexSet;
-
     let mut cli = Cli::parse();
 
     let starts = cli.starts_with.unwrap_or_default();
@@ -255,6 +258,8 @@ fn main() {
     let ftype = cli.file_type.into();
 
     let name = if let Some(n) = cli.name {
+        // if directory is given but no file name is specified, print files in that directory
+        // ex. hunt /home/user 
         if n == "." || n.contains('/') {
             cli.limit_to_dirs.insert(0, n);
             String::new()
@@ -270,7 +275,7 @@ fn main() {
     let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
 
     if cli.limit_to_dirs.is_empty() {
-        let dirs = IndexSet::from([&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR]).into_iter();
+        let dirs = [&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR].into_iter();
 
         // If only search for first, do it in order (less expensive to more)
         if cli.first {
@@ -313,7 +318,6 @@ fn main() {
             })
         });
         // Remove duplicates
-        let dirs = IndexSet::<PathBuf>::from_iter(dirs).into_iter();
         let args = Args::new(
             cli.first,
             cli.exact,

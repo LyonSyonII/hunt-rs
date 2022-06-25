@@ -182,12 +182,11 @@ dependencies = [
 
 [[package]]
 name = "hunt"
-version = "1.5.5"
+version = "1.5.6"
 dependencies = [
  "clap",
  "derive-new",
  "dirs",
- "indexmap",
  "lazy_static",
  "mimalloc",
  "parking_lot",
