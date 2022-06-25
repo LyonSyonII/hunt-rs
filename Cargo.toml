@@ -11,13 +11,13 @@ authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
 
 [dependencies]
-clap = { version = "3.0.7", features = ["derive"] }
+clap = { version = "3.2.6", features = ["derive"] }
 dirs = "4.0.0"
-rayon = "1.5.1"
+rayon = "1.5.3"
 lazy_static = "1.4.0"
 parking_lot = "0.12.1"
 derive-new = "0.5.9"
-mimalloc = { version = "0.1.17", default-features = false }
+mimalloc = { version = "0.1.29", default-features = false }
 
 [profile.release]
 lto = "thin"
