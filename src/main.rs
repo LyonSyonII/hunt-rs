@@ -1,5 +1,5 @@
 use derive_new::new;
-use clap::{Parser, Arg};
+use clap::{Parser};
 use parking_lot::Mutex;
 use rayon::{
     iter::{ParallelBridge, ParallelIterator},
@@ -137,7 +137,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 lazy_static::lazy_static! {
     static ref CURRENT_DIR: PathBuf = std::env::current_dir().expect("Current dir could not be read");
     static ref HOME_DIR: PathBuf = dirs::home_dir().expect("Home dir could not be read");
-    static ref ROOT_DIR: PathBuf = PathBuf::from("/");
+    static ref ROOT_DIR: &'static Path = Path::new("/");
     static ref IGNORE_PATHS: HashSet<&'static Path> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new));
 }
 
@@ -252,7 +252,7 @@ fn search_path(dir: &Path, search: &Search, args: &Args) {
 
 fn main() {
     let mut cli = Cli::parse();
-
+    
     let starts = cli.starts_with.unwrap_or_default();
     let ends = cli.ends_with.unwrap_or_default();
     let ftype = cli.file_type.into();
@@ -275,7 +275,7 @@ fn main() {
     let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
 
     if cli.limit_to_dirs.is_empty() {
-        let dirs = [&*CURRENT_DIR, &*HOME_DIR, &*ROOT_DIR].into_iter();
+        let dirs = [CURRENT_DIR.as_path(), HOME_DIR.as_path(), *ROOT_DIR].into_iter();
 
         // If only search for first, do it in order (less expensive to more)
         if cli.first {
@@ -317,7 +317,7 @@ fn main() {
                 std::process::exit(1);
             })
         });
-        // Remove duplicates
+
         let args = Args::new(
             cli.first,
             cli.exact,
