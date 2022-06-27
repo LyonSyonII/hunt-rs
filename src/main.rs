@@ -167,6 +167,7 @@ fn print_var(var: &mut String, first: bool, path: &Path, simple: bool) {
 
         FOUND.store(true, std::sync::atomic::Ordering::Relaxed);
         println!("{}\n", path.to_string_lossy());
+        dbg!(&path);
         std::process::exit(0)
     } else {
         append_var(var, path, simple)
