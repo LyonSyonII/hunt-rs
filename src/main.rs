@@ -125,7 +125,6 @@ struct Args<'a> {
     exact: bool,
     limit: bool,
     verbose: bool,
-    simple: bool,
     hidden: bool,
     ignore: &'a std::collections::HashSet<PathBuf>,
     case_sensitive: bool,
@@ -146,19 +145,12 @@ static FOUND: AtomicBool = AtomicBool::new(false);
 
 type Buffer = Mutex<(String, String)>;
 
-fn append_var(var: &mut String, txt: &Path, simple: bool) {
-    if simple {
-        var.push('\'');
-        var.push_str(&txt.to_string_lossy());
-        var.push('\'');
-    } else {
-        var.push_str(&txt.to_string_lossy());
-    }
-
+fn append_var(var: &mut String, txt: &Path) {
+    var.push_str(&txt.to_string_lossy());
     var.push('\n');
 }
 
-fn print_var(var: &mut String, first: bool, path: &Path, simple: bool) {
+fn print_var(var: &mut String, first: bool, path: &Path) {
     if first {
         let found = FOUND.load(std::sync::atomic::Ordering::Relaxed);
         if found {
@@ -167,10 +159,9 @@ fn print_var(var: &mut String, first: bool, path: &Path, simple: bool) {
 
         FOUND.store(true, std::sync::atomic::Ordering::Relaxed);
         println!("{}\n", path.to_string_lossy());
-        dbg!(&path);
         std::process::exit(0)
     } else {
-        append_var(var, path, simple)
+        append_var(var, path)
     }
 }
 
@@ -217,9 +208,9 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
 
     if starts && ends && ftype {
         if n == search.name {
-            print_var(&mut BUFFER.lock().0, args.first, path, args.simple);
+            print_var(&mut BUFFER.lock().0, args.first, path);
         } else if !args.exact && n.contains(search.name) {
-            print_var(&mut BUFFER.lock().1, args.first, path, args.simple);
+            print_var(&mut BUFFER.lock().1, args.first, path);
         }
     }
 
@@ -298,7 +289,6 @@ fn main() {
                 cli.exact,
                 false,
                 cli.verbose,
-                cli.simple,
                 cli.hidden,
                 &ignore_dirs,
                 c_sensitive,
@@ -314,7 +304,6 @@ fn main() {
                 cli.exact,
                 false,
                 cli.verbose,
-                cli.simple,
                 cli.hidden,
                 &ignore_dirs,
                 c_sensitive,
@@ -337,7 +326,6 @@ fn main() {
             cli.exact,
             true,
             cli.verbose,
-            cli.simple,
             cli.hidden,
             &ignore_dirs,
             c_sensitive,
@@ -374,8 +362,8 @@ fn sort_results(sort: &mut String) -> String {
     if sort.is_empty() {
         return String::new();
     }
-
-    let mut sort = sort.par_split('\n').collect::<Vec<&str>>();
+    
+    let mut sort = sort.par_lines().collect::<Vec<&str>>();
     sort.par_sort_unstable();
     sort.join("\n")
 }
