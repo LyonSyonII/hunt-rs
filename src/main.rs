@@ -106,7 +106,7 @@ struct Cli {
 }
 
 fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
-    let inp = inp.trim().replace(' ', " ");
+    let inp = inp.trim().replace(',', " ");
     Ok(HashSet::from_iter(inp.split(',').map(PathBuf::from)))
 }
 
