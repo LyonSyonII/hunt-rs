@@ -250,7 +250,20 @@ fn search_path(dir: &Path, search: &Search, args: &Args) {
     }
 }
 
+/*
+fn update_db() {
+    let cfg = dirs::config_dir().unwrap().join("/hunt/");
+    if !cfg.exists() {
+        println!("First time running Hunt, the database will be created, this can take a few minutes.");
+        
+        std::fs::create_dir_all(cfg).unwrap();
+    }
+}
+*/
+
 fn main() {
+    //update_db();
+
     let mut cli = Cli::parse();
     
     let starts = cli.starts_with.unwrap_or_default();
@@ -338,7 +351,7 @@ fn main() {
     let (ex, co) = (sort_results(ex), sort_results(co));
 
     if cli.simple {
-        print!("{}{}", co, ex);
+        print!("{co}{ex}");
         return;
     }
 
@@ -346,11 +359,11 @@ fn main() {
         println!("File not found\n");
     } else {
         if !cli.exact {
-            println!("Contains:{}", co);
+            println!("Contains:{co}");
             print!("Exact:");
         }
 
-        println!("{}", ex);
+        println!("{ex}");
     }
 }
 
@@ -363,7 +376,5 @@ fn sort_results(sort: &mut String) -> String {
 
     let mut sort = sort.par_split('\n').collect::<Vec<&str>>();
     sort.par_sort_unstable();
-    let mut sort = sort.join("\n");
-    sort.push('\n');
-    sort
+    sort.join("\n")
 }
