@@ -8,7 +8,7 @@ use rayon::{
 };
 use std::{
     collections::HashSet,
-    path::{Path, PathBuf}, sync::atomic::AtomicBool,
+    path::{Path, PathBuf, Display}, sync::atomic::AtomicBool, borrow::Cow, ffi::OsString, os::unix::prelude::OsStrExt,
 };
 
 enum FileType {
@@ -140,17 +140,13 @@ lazy_static::lazy_static! {
     static ref IGNORE_PATHS: HashSet<&'static Path> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new));
 }
 
-static BUFFER: Buffer = Mutex::new((String::new(), String::new()));
+static BUFFERS: Buffers = Mutex::new((Vec::new(), Vec::new()));
 static FOUND: AtomicBool = AtomicBool::new(false);
 
-type Buffer = Mutex<(String, String)>;
+type Buffers = Mutex<(Buffer, Buffer)>;
+type Buffer = Vec<PathBuf>;
 
-fn append_var(var: &mut String, txt: &Path) {
-    var.push_str(&txt.to_string_lossy());
-    var.push('\n');
-}
-
-fn print_var(var: &mut String, first: bool, path: &Path) {
+fn print_var(var: &mut Buffer, first: bool, path: PathBuf) {
     if first {
         let found = FOUND.load(std::sync::atomic::Ordering::Relaxed);
         if found {
@@ -158,29 +154,30 @@ fn print_var(var: &mut String, first: bool, path: &Path) {
         }
 
         FOUND.store(true, std::sync::atomic::Ordering::Relaxed);
-        println!("{}", path.to_string_lossy());
+        println!("{}", path.display());
         std::process::exit(0)
     } else {
-        append_var(var, path)
+        var.push(path);
     }
 }
 
 fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     // Get entry name
-    let n = entry.file_name();
-    let n = match args.case_sensitive {
-        true => n.to_string_lossy().into(),
-        false => n.to_string_lossy().to_ascii_lowercase(),
+    let n = if args.case_sensitive {
+        entry.file_name()
+    } else {
+        entry.file_name().to_ascii_lowercase()
     };
 
-    let path = entry.path();
-    let path = path.as_path();
+    let n = n.to_string_lossy();
 
-    if !args.hidden && (n.starts_with('.') || IGNORE_PATHS.contains(path)) {
+    let path = entry.path();
+    
+    if !args.hidden && (n.starts_with('.') || IGNORE_PATHS.contains(path.as_path())) {
         return;
     }
 
-    if args.ignore.contains(path) {
+    if args.ignore.contains(&path) {
         return;
     }
 
@@ -202,15 +199,15 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
         }
         FileType::All => true,
     };
-
+    
     let starts = !search.starts.is_empty() || n.starts_with(search.starts);
     let ends = !search.ends.is_empty() || n.ends_with(search.ends);
 
     if starts && ends && ftype {
         if n == search.name {
-            print_var(&mut BUFFER.lock().0, args.first, path);
+            print_var(&mut BUFFERS.lock().0, args.first, path.clone());
         } else if !args.exact && n.contains(search.name) {
-            print_var(&mut BUFFER.lock().1, args.first, path);
+            print_var(&mut BUFFERS.lock().1, args.first, path.clone());
         }
     }
 
@@ -336,11 +333,17 @@ fn main() {
         });
     };
 
-    let (ex, co) = &mut *BUFFER.lock();
-    let (ex, co) = (sort_results(ex), sort_results(co));
+    let (co, ex) = &mut *BUFFERS.lock();
+    co.par_sort_unstable();
+    ex.par_sort_unstable();
 
     if cli.simple {
-        print!("{co}{ex}");
+        for path in co {
+            println!("{}", path.display())
+        }
+        for path in ex {
+            println!("{}", path.display())
+        }
         return;
     }
 
@@ -348,22 +351,16 @@ fn main() {
         println!("File not found\n");
     } else {
         if !cli.exact {
-            println!("Contains:{co}");
-            print!("Exact:");
+            println!("Contains:");
+            for path in co {
+                println!("{}", path.display())
+            }
+
+            println!("Exact:")
         }
 
-        println!("{ex}");
+        for path in ex {
+            println!("{}", path.display())
+        }
     }
-}
-
-// Utility functions
-
-fn sort_results(sort: &mut String) -> String {
-    if sort.is_empty() {
-        return String::new();
-    }
-    
-    let mut sort = sort.par_lines().collect::<Vec<&str>>();
-    sort.par_sort_unstable();
-    sort.join("\n")
 }
