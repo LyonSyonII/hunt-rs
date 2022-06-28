@@ -4,11 +4,10 @@ use parking_lot::Mutex;
 use rayon::{
     iter::{ParallelBridge, ParallelIterator},
     slice::ParallelSliceMut,
-    str::ParallelString,
 };
 use std::{
     collections::HashSet,
-    path::{Path, PathBuf, Display}, sync::atomic::AtomicBool, borrow::Cow, ffi::OsString, os::unix::prelude::OsStrExt,
+    path::{Path, PathBuf}, sync::atomic::AtomicBool
 };
 
 enum FileType {
