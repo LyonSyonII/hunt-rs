@@ -238,18 +238,7 @@ fn search_path(dir: &Path, search: &Search, args: &Args) {
     }
 }
 
-/*
-fn update_db() {
-    let cfg = dirs::config_dir().unwrap().join("/hunt/");
-    if !cfg.exists() {
-        println!("First time running Hunt, the database will be created, this can take a few minutes.");
-        
-        std::fs::create_dir_all(cfg).unwrap();
-    }
-}
-*/
-
-fn main() {
+fn main() -> std::io::Result<()> {
     //update_db();
 
     let mut cli = Cli::parse();
@@ -331,35 +320,41 @@ fn main() {
             search_path(&dir, &search, &args);
         });
     };
-
+    
     let (co, ex) = &mut *BUFFERS.lock();
     co.par_sort_unstable();
     ex.par_sort_unstable();
-
+    
+    use std::io::Write;
     if cli.simple {
+        let mut stdout = std::io::stdout().lock();
         for path in co {
-            println!("{}", path.display())
+            writeln!(stdout, "{}", path.display())?;
         }
         for path in ex {
-            println!("{}", path.display())
+            writeln!(stdout, "{}", path.display())?;
         }
-        return;
+        return Ok(());
     }
 
     if ex.is_empty() && co.is_empty() {
-        println!("File not found\n");
+        println!("File not found");
+        Ok(())
     } else {
+        let mut stdout = std::io::stdout().lock();
         if !cli.exact {
-            println!("Contains:");
+            writeln!(stdout, "Contains:")?;
             for path in co {
-                println!("{}", path.display())
+                writeln!(stdout, "{}", path.display())?
             }
 
-            println!("Exact:")
+            writeln!(stdout, "Exact:")?
         }
 
         for path in ex {
-            println!("{}", path.display())
+            writeln!(stdout, "{}", path.display())?
         }
+
+        Ok(())
     }
 }
