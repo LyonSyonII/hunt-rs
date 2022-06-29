@@ -103,7 +103,7 @@ struct Cli {
     ///
     /// e.g. "hunt somefile /home/user /home/user/downloads" will search in the home directory, and because /home/user/downloads is inside it, /downloads will be traversed two times
     #[clap(required = false)]
-    limit_to_dirs: Vec<String>,
+    limit_to_dirs: Vec<PathBuf>,
 }
 
 fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
@@ -137,7 +137,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 lazy_static::lazy_static! {
     static ref CURRENT_DIR: PathBuf = std::env::current_dir().expect("Current dir could not be read");
     static ref HOME_DIR: PathBuf = dirs::home_dir().expect("Home dir could not be read");
-    static ref ROOT_DIR: &'static Path = Path::new("/");
+    static ref ROOT_DIR: PathBuf = PathBuf::from("/");
     static ref IGNORE_PATHS: HashSet<&'static Path> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new));
 }
 
@@ -252,7 +252,7 @@ fn main() -> std::io::Result<()> {
         // if directory is given but no file name is specified, print files in that directory
         // ex. hunt /home/user 
         Some(n) if n == "."  || n.contains('/') => {
-            cli.limit_to_dirs.insert(0, n);
+            cli.limit_to_dirs.insert(0, PathBuf::from(n));
             String::new()
         },
         Some(n) => n,
@@ -276,12 +276,10 @@ fn main() -> std::io::Result<()> {
         c_sensitive,
     );
     
-    
     if cli.limit_to_dirs.is_empty() {
-        let dirs = [CURRENT_DIR.as_path(), HOME_DIR.as_path(), *ROOT_DIR].into_iter();
-
+        let dirs = [CURRENT_DIR.as_path(), HOME_DIR.as_path(), ROOT_DIR.as_path()].into_iter();
+        
         // If only search for first, do it in order (less expensive to more)
-
         if cli.first {
             for dir in dirs {
                 search_path(dir, &search, &args, &buffers);
@@ -296,7 +294,7 @@ fn main() -> std::io::Result<()> {
     } else {
         // Check if paths are valid
         let dirs = cli.limit_to_dirs.iter().map(|s| {
-            std::fs::canonicalize(s.as_str()).unwrap_or_else(|_| {
+            std::fs::canonicalize(s).unwrap_or_else(|_| {
                 eprintln!("ERROR: The {:?} directory does not exist", s);
                 std::process::exit(1);
             })
