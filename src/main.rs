@@ -141,7 +141,6 @@ lazy_static::lazy_static! {
     static ref IGNORE_PATHS: HashSet<&'static Path> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new));
 }
 
-static BUFFERS: Buffers = Mutex::new((Vec::new(), Vec::new()));
 static FOUND: AtomicBool = AtomicBool::new(false);
 
 type Buffers = Mutex<(Buffer, Buffer)>;
@@ -162,7 +161,7 @@ fn print_var(var: &mut Buffer, first: bool, path: PathBuf) {
     }
 }
 
-fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
+fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args, buffers: &Buffers) {
     // Get entry name
     let n = if args.case_sensitive {
         entry.file_name()
@@ -206,9 +205,9 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
 
     if starts && ends && ftype {
         if n == search.name {
-            print_var(&mut BUFFERS.lock().0, args.first, path.clone());
+            print_var(&mut buffers.lock().0, args.first, path.clone());
         } else if !args.exact && n.contains(search.name) {
-            print_var(&mut BUFFERS.lock().1, args.first, path.clone());
+            print_var(&mut buffers.lock().1, args.first, path.clone());
         }
     }
 
@@ -220,7 +219,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
 
         if let Ok(read) = std::fs::read_dir(&path) {
             read.flatten().par_bridge().for_each(|entry| {
-                search_dir(entry, search, args);
+                search_dir(entry, search, args, buffers);
             })
         } else if args.verbose {
             eprintln!("Could not read {:?}", path);
@@ -230,14 +229,18 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args) {
     }
 }
 
-fn search_path(dir: &Path, search: &Search, args: &Args) {
+fn search_path(dir: &Path, search: &Search, args: &Args, buffers: &Buffers) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.flatten().par_bridge().for_each(|entry| {
-            search_dir(entry, search, args);
+            search_dir(entry, search, args, buffers);
         })
     } else if args.verbose {
         eprintln!("Could not read {:?}", dir);
     }
+}
+
+fn update_db() {
+
 }
 
 fn main() -> std::io::Result<()> {
@@ -262,9 +265,11 @@ fn main() -> std::io::Result<()> {
         String::new()
     };
     let search = Search::new(&name, &starts, &ends, &ftype);
-
+    
     let c_sensitive = name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
     let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
+    
+    let buffers: Buffers = Mutex::new((Vec::new(), Vec::new()));
 
     if cli.limit_to_dirs.is_empty() {
         let dirs = [CURRENT_DIR.as_path(), HOME_DIR.as_path(), *ROOT_DIR].into_iter();
@@ -281,7 +286,7 @@ fn main() -> std::io::Result<()> {
                 c_sensitive,
             );
             for dir in dirs {
-                search_path(dir, &search, &args);
+                search_path(dir, &search, &args, &buffers);
             }
         }
         // If search all occurrences, multithread search
@@ -296,7 +301,7 @@ fn main() -> std::io::Result<()> {
                 c_sensitive,
             );
             dirs.par_bridge().for_each(|dir| {
-                search_path(dir, &search, &args);
+                search_path(dir, &search, &args, &buffers);
             });
         }
     } else {
@@ -319,17 +324,18 @@ fn main() -> std::io::Result<()> {
         );
         // Search in directories
         dirs.par_bridge().for_each(|dir| {
-            search_path(&dir, &search, &args);
+            search_path(&dir, &search, &args, &buffers);
         });
     };
     
-    let (co, ex) = &mut *BUFFERS.lock();
+    // Get results and sort them
+    let (mut co, mut ex) = buffers.into_inner();
     if cli.simple <= 1 {
         co.par_sort_unstable();
         ex.par_sort_unstable();
     }
     
-    
+    // Print results
     use std::io::Write;
     if cli.simple != 0 {
         let mut stdout = std::io::stdout().lock();
