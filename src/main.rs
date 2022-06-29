@@ -239,10 +239,6 @@ fn search_path(dir: &Path, search: &Search, args: &Args, buffers: &Buffers) {
     }
 }
 
-fn update_db() {
-
-}
-
 fn main() -> std::io::Result<()> {
     //update_db();
 
@@ -251,55 +247,48 @@ fn main() -> std::io::Result<()> {
     let starts = cli.starts_with.unwrap_or_default();
     let ends = cli.ends_with.unwrap_or_default();
     let ftype = cli.file_type.into();
-
-    let name = if let Some(n) = cli.name {
+    
+    let name = match cli.name {
         // if directory is given but no file name is specified, print files in that directory
         // ex. hunt /home/user 
-        if n == "." || n.contains('/') {
+        Some(n) if n == "."  || n.contains('/') => {
             cli.limit_to_dirs.insert(0, n);
             String::new()
-        } else {
-            n
-        }
-    } else {
-        String::new()
+        },
+        Some(n) => n,
+        None => String::new()
     };
+
     let search = Search::new(&name, &starts, &ends, &ftype);
     
     let c_sensitive = name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
     let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
     
     let buffers: Buffers = Mutex::new((Vec::new(), Vec::new()));
-
+    
+    let args = Args::new(
+        cli.first,
+        cli.exact,
+        !cli.limit_to_dirs.is_empty(),
+        cli.verbose,
+        cli.hidden,
+        &ignore_dirs,
+        c_sensitive,
+    );
+    
+    
     if cli.limit_to_dirs.is_empty() {
         let dirs = [CURRENT_DIR.as_path(), HOME_DIR.as_path(), *ROOT_DIR].into_iter();
 
         // If only search for first, do it in order (less expensive to more)
+
         if cli.first {
-            let args = Args::new(
-                true,
-                cli.exact,
-                false,
-                cli.verbose,
-                cli.hidden,
-                &ignore_dirs,
-                c_sensitive,
-            );
             for dir in dirs {
                 search_path(dir, &search, &args, &buffers);
             }
         }
         // If search all occurrences, multithread search
         else {
-            let args = Args::new(
-                false,
-                cli.exact,
-                false,
-                cli.verbose,
-                cli.hidden,
-                &ignore_dirs,
-                c_sensitive,
-            );
             dirs.par_bridge().for_each(|dir| {
                 search_path(dir, &search, &args, &buffers);
             });
@@ -312,16 +301,6 @@ fn main() -> std::io::Result<()> {
                 std::process::exit(1);
             })
         });
-
-        let args = Args::new(
-            cli.first,
-            cli.exact,
-            true,
-            cli.verbose,
-            cli.hidden,
-            &ignore_dirs,
-            c_sensitive,
-        );
         // Search in directories
         dirs.par_bridge().for_each(|dir| {
             search_path(&dir, &search, &args, &buffers);
