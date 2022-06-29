@@ -55,10 +55,12 @@ struct Cli {
     /// e.g. "Could not read /proc/81261/map_files"
     #[clap(short, long)]
     verbose: bool,
-
+    
     /// Prints without formatting (without "Contains:" and "Exact:")
-    #[clap(short, long)]
-    simple: bool,
+    /// 
+    /// -ss Output is not sorted 
+    #[clap(short, long, action = clap::ArgAction::Count)]
+    simple: u8,
 
     /// If enabled, it searches inside hidden directories
     ///
@@ -67,8 +69,8 @@ struct Cli {
     hidden: bool,
     
     // /// If enabled, hunt will not update the database if the file is not found
-    // #[clap(short, long="noupdate")]
-    // no_update: bool,
+    // // // #[clap(short, long="noupdate")]
+    // // no_update: bool,
 
     /// Only files that start with this will be found
     #[clap(short = 'S', long = "starts")]
@@ -322,11 +324,14 @@ fn main() -> std::io::Result<()> {
     };
     
     let (co, ex) = &mut *BUFFERS.lock();
-    co.par_sort_unstable();
-    ex.par_sort_unstable();
+    if cli.simple <= 1 {
+        co.par_sort_unstable();
+        ex.par_sort_unstable();
+    }
+    
     
     use std::io::Write;
-    if cli.simple {
+    if cli.simple != 0 {
         let mut stdout = std::io::stdout().lock();
         for path in co {
             writeln!(stdout, "{}", path.display())?;

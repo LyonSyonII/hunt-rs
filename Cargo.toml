@@ -11,7 +11,7 @@ authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
 
 [dependencies]
-clap = { version = "3.2.6", features = ["derive"] }
+clap = { version = "3.2.7", features = ["derive"] }
 dirs = "4.0.0"
 rayon = "1.5.3"
 lazy_static = "1.4.0"
