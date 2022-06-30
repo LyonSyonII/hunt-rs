@@ -1,13 +1,18 @@
+#![feature(is_some_with)]
+
+use clap::Parser;
 use derive_new::new;
-use clap::{Parser};
 use parking_lot::Mutex;
+use colored::Colorize;
 use rayon::{
     iter::{ParallelBridge, ParallelIterator},
     slice::ParallelSliceMut,
 };
 use std::{
+    io::{Write},
     collections::HashSet,
-    path::{Path, PathBuf}, sync::atomic::AtomicBool
+    path::{Path, PathBuf},
+    sync::atomic::AtomicBool, borrow::Cow, ops::Index,
 };
 
 enum FileType {
@@ -55,10 +60,10 @@ struct Cli {
     /// e.g. "Could not read /proc/81261/map_files"
     #[clap(short, long)]
     verbose: bool,
-    
+
     /// Prints without formatting (without "Contains:" and "Exact:")
-    /// 
-    /// -ss Output is not sorted 
+    ///
+    /// -ss Output is not sorted
     #[clap(short, long, action = clap::ArgAction::Count)]
     simple: u8,
 
@@ -67,11 +72,10 @@ struct Cli {
     /// If not enabled, hidden directories (starting with '.') and "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit" will be skipped
     #[clap(short, long)]
     hidden: bool,
-    
+
     // /// If enabled, hunt will not update the database if the file is not found
     // // // #[clap(short, long="noupdate")]
     // // no_update: bool,
-
     /// Only files that start with this will be found
     #[clap(short = 'S', long = "starts")]
     starts_with: Option<String>,
@@ -135,8 +139,8 @@ struct Args<'a> {
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 lazy_static::lazy_static! {
-    static ref CURRENT_DIR: PathBuf = std::env::current_dir().expect("Current dir could not be read");
-    static ref HOME_DIR: PathBuf = dirs::home_dir().expect("Home dir could not be read");
+    static ref CURRENT_DIR: PathBuf = std::env::current_dir().expect("Current directory could not be read");
+    static ref HOME_DIR: PathBuf = directories::UserDirs::new().expect("Home directory could not be read").home_dir().into();
     static ref ROOT_DIR: PathBuf = PathBuf::from("/");
     static ref IGNORE_PATHS: HashSet<&'static Path> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new));
 }
@@ -163,69 +167,58 @@ fn print_var(var: &mut Buffer, first: bool, path: PathBuf) {
 
 fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args, buffers: &Buffers) {
     // Get entry name
-    let n = if args.case_sensitive {
+    let fname = if args.case_sensitive {
         entry.file_name()
     } else {
         entry.file_name().to_ascii_lowercase()
     };
-
-    let n = n.to_string_lossy();
+    let fname = fname.to_string_lossy();
 
     let path = entry.path();
     
-    if !args.hidden && (n.starts_with('.') || IGNORE_PATHS.contains(path.as_path())) {
-        return;
-    }
-
-    if args.ignore.contains(&path) {
+    if !args.hidden && (fname.starts_with('.') || IGNORE_PATHS.contains(path.as_path())) || args.ignore.contains(&path) {
         return;
     }
 
     // Read type of file and check if it should be added to search results
+    let is_dir = entry.file_type().is_ok_and(|ftype| ftype.is_dir());
     let ftype = match search.ftype {
         FileType::Dir => {
-            if let Ok(ftype) = entry.file_type() {
-                ftype.is_dir()
-            } else {
-                false
-            }
+            is_dir
         }
         FileType::File => {
-            if let Ok(ftype) = entry.file_type() {
-                ftype.is_file()
-            } else {
-                false
-            }
+            entry.file_type().is_ok_and(|ftype| ftype.is_file())
         }
         FileType::All => true,
     };
     
-    let starts = !search.starts.is_empty() || n.starts_with(search.starts);
-    let ends = !search.ends.is_empty() || n.ends_with(search.ends);
 
+    let starts = !search.starts.is_empty() || fname.starts_with(search.starts);
+    let ends = !search.ends.is_empty() || fname.ends_with(search.ends);
+    
     if starts && ends && ftype {
-        if n == search.name {
+        // If file name is equal to search name, write it to the "Exact" buffer
+        if fname == search.name {
             print_var(&mut buffers.lock().0, args.first, path.clone());
-        } else if !args.exact && n.contains(search.name) {
+        } 
+        // If file name contains the search name, write it to the "Contains" buffer
+        else if !args.exact && fname.contains(search.name) {
             print_var(&mut buffers.lock().1, args.first, path.clone());
         }
     }
-
-    // If entry is directory, search inside it
-    if let Ok(ftype) = entry.file_type() {
-        if !ftype.is_dir() || ((path == *CURRENT_DIR || path == *HOME_DIR) && !args.limit) {
-            return;
-        }
-
-        if let Ok(read) = std::fs::read_dir(&path) {
-            read.flatten().par_bridge().for_each(|entry| {
-                search_dir(entry, search, args, buffers);
-            })
-        } else if args.verbose {
-            eprintln!("Could not read {:?}", path);
-        }
+    
+    // If entry is not a directory, stop function 
+    // Also skip CURRENT_DIR and HOME_DIR when limit is no specified, to avoid searching them twice
+    if !is_dir || (!args.limit && (path == *CURRENT_DIR || path == *HOME_DIR)) {
+        return;
+    }
+    // If entry is a directory, search inside it
+    if let Ok(read) = std::fs::read_dir(&path) {
+        read.flatten().par_bridge().for_each(|entry| {
+            search_dir(entry, search, args, buffers);
+        })
     } else if args.verbose {
-        eprintln!("Could not get file type for {:?}", entry);
+        eprintln!("Could not read {:?}", path);
     }
 }
 
@@ -239,33 +232,42 @@ fn search_path(dir: &Path, search: &Search, args: &Args, buffers: &Buffers) {
     }
 }
 
-fn main() -> std::io::Result<()> {
-    //update_db();
+fn print_with_highlight(stdout: &mut std::io::StdoutLock, path: &Path, name: &str, simple: u8) -> std::io::Result<()> {
+    if simple == 0 {
+        let path = path.to_string_lossy();
+        let start = path.rfind(name).unwrap();
+        let end = start + name.len();
+        return writeln!(stdout, "{}{}{}", path.index(..start), path.index(start..end).bright_red(), path.index(end..));
+    } 
+        
+    writeln!(stdout, "{}", path.display())
+}
 
+fn main() -> std::io::Result<()> {
     let mut cli = Cli::parse();
-    
+
     let starts = cli.starts_with.unwrap_or_default();
     let ends = cli.ends_with.unwrap_or_default();
     let ftype = cli.file_type.into();
-    
+
     let name = match cli.name {
-        // if directory is given but no file name is specified, print files in that directory
-        // ex. hunt /home/user 
-        Some(n) if n == "."  || n.contains('/') => {
+        // If directory is given but no file name is specified, print files in that directory
+        // ex. hunt /home/user
+        Some(n) if n == "." || n.contains('/') => {
             cli.limit_to_dirs.insert(0, PathBuf::from(n));
             String::new()
-        },
+        }
         Some(n) => n,
-        None => String::new()
+        None => String::new(),
     };
 
     let search = Search::new(&name, &starts, &ends, &ftype);
-    
+
     let c_sensitive = name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
     let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
-    
+
     let buffers: Buffers = Mutex::new((Vec::new(), Vec::new()));
-    
+
     let args = Args::new(
         cli.first,
         cli.exact,
@@ -276,11 +278,17 @@ fn main() -> std::io::Result<()> {
         c_sensitive,
     );
     
-    if cli.limit_to_dirs.is_empty() {
-        let dirs = [CURRENT_DIR.as_path(), HOME_DIR.as_path(), ROOT_DIR.as_path()].into_iter();
-        
+    // If no limit, search current, home and root directories
+    if !args.limit {
+        let dirs = [
+            CURRENT_DIR.as_path(),
+            HOME_DIR.as_path(),
+            ROOT_DIR.as_path(),
+        ]
+        .into_iter();
+
         // If only search for first, do it in order (less expensive to more)
-        if cli.first {
+        if args.first {
             for dir in dirs {
                 search_path(dir, &search, &args, &buffers);
             }
@@ -304,45 +312,35 @@ fn main() -> std::io::Result<()> {
             search_path(&dir, &search, &args, &buffers);
         });
     };
-    
+
     // Get results and sort them
-    let (mut co, mut ex) = buffers.into_inner();
+    let (mut ex, mut co) = buffers.into_inner();
+    
+    if ex.is_empty() && co.is_empty() {
+        println!("File not found");
+        return Ok(());
+    }
+
     if cli.simple <= 1 {
         co.par_sort_unstable();
         ex.par_sort_unstable();
     }
     
     // Print results
-    use std::io::Write;
-    if cli.simple != 0 {
-        let mut stdout = std::io::stdout().lock();
-        for path in co {
-            writeln!(stdout, "{}", path.display())?;
-        }
-        for path in ex {
-            writeln!(stdout, "{}", path.display())?;
-        }
-        return Ok(());
+    let mut stdout = std::io::stdout().lock();
+    
+    if cli.simple == 0 {
+        writeln!(stdout, "Contains:")?;
+    }
+    for path in co {
+        print_with_highlight(&mut stdout, &path, search.name, cli.simple)?;
+    }
+    if cli.simple == 0 { 
+        writeln!(stdout, "\nExact:")?; 
     }
 
-    if ex.is_empty() && co.is_empty() {
-        println!("File not found");
-        Ok(())
-    } else {
-        let mut stdout = std::io::stdout().lock();
-        if !cli.exact {
-            writeln!(stdout, "Contains:")?;
-            for path in co {
-                writeln!(stdout, "{}", path.display())?
-            }
-
-            writeln!(stdout, "Exact:")?
-        }
-
-        for path in ex {
-            writeln!(stdout, "{}", path.display())?
-        }
-
-        Ok(())
+    for path in ex {
+        writeln!(stdout, "{}", path.display())?;
     }
+    Ok(())
 }
