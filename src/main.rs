@@ -1,5 +1,4 @@
 use clap::Parser;
-use derive_new::new;
 use parking_lot::Mutex;
 use colored::Colorize;
 use rayon::{
@@ -113,16 +112,34 @@ fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
     Ok(HashSet::from_iter(inp.split(',').map(PathBuf::from)))
 }
 
-#[derive(new)]
+
 struct Search<'a> {
     name: &'a str,
     starts: &'a str,
     ends: &'a str,
     ftype: &'a FileType,
+    current_dir: PathBuf,
+    home_dir: PathBuf,
+    root_dir: PathBuf,
+    ignore_paths: HashSet<&'static Path>
+}
+
+impl<'a> Search<'a> {
+    fn new(name: &'a str, starts: &'a str, ends: &'a str, ftype: &'a FileType) -> Search<'a> {
+        Search { 
+            name, 
+            starts, 
+            ends, 
+            ftype, 
+            current_dir: std::env::current_dir().expect("Current directory could not be read"), 
+            home_dir: directories::UserDirs::new().expect("Home directory could not be read").home_dir().into(), 
+            root_dir: PathBuf::from("/"), 
+            ignore_paths: HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new)) 
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
-#[derive(new)]
 struct Args<'a> {
     first: bool,
     exact: bool,
@@ -133,16 +150,14 @@ struct Args<'a> {
     case_sensitive: bool,
 }
 
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
-lazy_static::lazy_static! {
-    static ref CURRENT_DIR: PathBuf = std::env::current_dir().expect("Current directory could not be read");
-    static ref HOME_DIR: PathBuf = directories::UserDirs::new().expect("Home directory could not be read").home_dir().into();
-    static ref ROOT_DIR: PathBuf = PathBuf::from("/");
-    static ref IGNORE_PATHS: HashSet<&'static Path> = HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new));
+impl<'a> Args<'a> {
+    fn new(first: bool, exact: bool, limit: bool, verbose: bool, hidden: bool, ignore: &'a HashSet<PathBuf>, case_sensitive: bool) -> Args<'a> {
+        Args { first, exact, limit, verbose, hidden, ignore, case_sensitive }
+    }
 }
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 static FOUND: AtomicBool = AtomicBool::new(false);
 
 type Buffers = Mutex<(Buffer, Buffer)>;
@@ -174,7 +189,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args, buffers: &
 
     let path = entry.path();
     
-    if !args.hidden && (fname.starts_with('.') || IGNORE_PATHS.contains(path.as_path())) || args.ignore.contains(&path) {
+    if !args.hidden && (fname.starts_with('.') || search.ignore_paths.contains(path.as_path())) || args.ignore.contains(&path) {
         return;
     }
 
@@ -207,7 +222,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args, buffers: &
     
     // If entry is not a directory, stop function 
     // Also skip CURRENT_DIR and HOME_DIR when limit is no specified, to avoid searching them twice
-    if !is_dir || (!args.limit && (path == *CURRENT_DIR || path == *HOME_DIR)) {
+    if !is_dir || (!args.limit && (path == search.current_dir || path == search.home_dir)) {
         return;
     }
     // If entry is a directory, search inside it
@@ -285,9 +300,9 @@ fn main() -> std::io::Result<()> {
     // If no limit, search current, home and root directories
     if !args.limit {
         let dirs = [
-            CURRENT_DIR.as_path(),
-            HOME_DIR.as_path(),
-            ROOT_DIR.as_path(),
+            search.current_dir.as_path(),
+            search.home_dir.as_path(),
+            search.root_dir.as_path(),
         ]
         .into_iter();
 

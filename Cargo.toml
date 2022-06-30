@@ -14,9 +14,7 @@ edition = "2021"
 clap = { version = "3.2.7", features = ["derive"] }
 directories = "4.0.1"
 rayon = "1.5.3"
-lazy_static = "1.4.0"
 parking_lot = "0.12.1"
-derive-new = "0.5.9"
 mimalloc = { version = "0.1.29", default-features = false }
 colored = { version = "2.0.0", features = [] }
 
