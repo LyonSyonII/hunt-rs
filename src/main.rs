@@ -1,5 +1,3 @@
-#![feature(is_some_with)]
-
 use clap::Parser;
 use derive_new::new;
 use parking_lot::Mutex;
@@ -181,13 +179,13 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args, buffers: &
     }
 
     // Read type of file and check if it should be added to search results
-    let is_dir = entry.file_type().is_ok_and(|ftype| ftype.is_dir());
+    let is_dir = matches!(entry.file_type(), Ok(ftype) if ftype.is_dir());
     let ftype = match search.ftype {
         FileType::Dir => {
             is_dir
         }
         FileType::File => {
-            entry.file_type().is_ok_and(|ftype| ftype.is_file())
+            matches!(entry.file_type(), Ok(ftype) if ftype.is_file())
         }
         FileType::All => true,
     };
