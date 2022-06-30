@@ -12,7 +12,7 @@ use std::{
     io::{Write},
     collections::HashSet,
     path::{Path, PathBuf},
-    sync::atomic::AtomicBool, borrow::Cow, ops::Index,
+    sync::atomic::AtomicBool, ops::Index,
 };
 
 enum FileType {
@@ -232,10 +232,16 @@ fn search_path(dir: &Path, search: &Search, args: &Args, buffers: &Buffers) {
     }
 }
 
-fn print_with_highlight(stdout: &mut std::io::StdoutLock, path: &Path, name: &str, simple: u8) -> std::io::Result<()> {
+fn print_with_highlight(stdout: &mut std::io::StdoutLock, path: &Path, name: &str, simple: u8, case_sensitive: bool) -> std::io::Result<()> {
     if simple == 0 {
         let path = path.to_string_lossy();
-        let start = path.rfind(name).unwrap();
+        let search = if case_sensitive {
+            path.to_string()
+        } else {
+            path.to_ascii_lowercase()
+        };
+
+        let start = search.rfind(name).unwrap();
         let end = start + name.len();
         return writeln!(stdout, "{}{}{}", path.index(..start), path.index(start..end).bright_red(), path.index(end..));
     } 
@@ -333,7 +339,7 @@ fn main() -> std::io::Result<()> {
         writeln!(stdout, "Contains:")?;
     }
     for path in co {
-        print_with_highlight(&mut stdout, &path, search.name, cli.simple)?;
+        print_with_highlight(&mut stdout, &path, search.name, cli.simple, args.case_sensitive)?;
     }
     if cli.simple == 0 { 
         writeln!(stdout, "\nExact:")?; 
