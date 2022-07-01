@@ -253,7 +253,7 @@ fn search_path(dir: &Path, search: &Search, args: &Args, buffers: &Buffers) {
     }
 }
 
-fn print_with_highlight(stdout: &mut std::io::StdoutLock, path: &Path, name: &str, simple: Output, case_sensitive: bool) -> std::io::Result<()> {
+fn print_with_highlight(stdout: &mut std::io::BufWriter<std::io::StdoutLock>, path: &Path, name: &str, simple: Output, case_sensitive: bool) -> std::io::Result<()> {
     if simple == Output::Normal {
         let path = path.to_string_lossy();
         let search = if case_sensitive {
@@ -266,7 +266,7 @@ fn print_with_highlight(stdout: &mut std::io::StdoutLock, path: &Path, name: &st
         let end = start + name.len();
         return writeln!(stdout, "{}{}{}", path.index(..start), path.index(start..end).bright_red().bold(), path.index(end..));
     } 
-        
+    
     writeln!(stdout, "{}", path.display())
 }
 
@@ -341,8 +341,9 @@ fn main() -> std::io::Result<()> {
     }
     
     // Print results
-    let mut stdout = std::io::stdout().lock();
-    
+    let stdout = std::io::stdout().lock();
+    let mut stdout = std::io::BufWriter::new(stdout);
+
     if simple == Output::Normal {
         writeln!(stdout, "Contains:")?;
     }
