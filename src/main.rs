@@ -160,7 +160,7 @@ impl<'a> Args<'a> {
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 static FOUND: AtomicBool = AtomicBool::new(false);
 
-type Buffers = Mutex<(Buffer, Buffer)>;
+type Buffers = (Mutex<Buffer>, Mutex<Buffer>);
 type Buffer = Vec<PathBuf>;
 
 fn print_var(var: &mut Buffer, first: bool, path: PathBuf) {
@@ -212,11 +212,11 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args, buffers: &
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if fname == search.name {
-            print_var(&mut buffers.lock().0, args.first, path.clone());
+            print_var(&mut buffers.0.lock(), args.first, path.clone());
         } 
         // If file name contains the search name, write it to the "Contains" buffer
         else if !args.exact && fname.contains(search.name) {
-            print_var(&mut buffers.lock().1, args.first, path.clone());
+            print_var(&mut buffers.1.lock(), args.first, path.clone());
         }
     }
     
@@ -285,7 +285,7 @@ fn main() -> std::io::Result<()> {
     let c_sensitive = name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
     let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
 
-    let buffers: Buffers = Mutex::new((Vec::new(), Vec::new()));
+    let buffers: Buffers = (Mutex::new(Vec::new()), Mutex::new(Vec::new()));
 
     let args = Args::new(
         cli.first,
@@ -333,7 +333,7 @@ fn main() -> std::io::Result<()> {
     };
 
     // Get results and sort them
-    let (mut ex, mut co) = buffers.into_inner();
+    let (mut ex, mut co) = (buffers.0.into_inner(), buffers.1.into_inner());
     
     if ex.is_empty() && co.is_empty() {
         println!("File not found");
@@ -358,7 +358,6 @@ fn main() -> std::io::Result<()> {
     if cli.simple == 0 { 
         writeln!(stdout, "\nExact:")?; 
     }
-
     for path in ex {
         writeln!(stdout, "{}", path.display())?;
     }
