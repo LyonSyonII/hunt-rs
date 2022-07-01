@@ -2,7 +2,7 @@ use clap::Parser;
 use parking_lot::Mutex;
 use colored::Colorize;
 use rayon::{
-    iter::{ParallelBridge, ParallelIterator},
+    iter::{ParallelBridge, ParallelIterator, IntoParallelIterator},
     slice::ParallelSliceMut,
 };
 use std::{
@@ -351,6 +351,7 @@ fn main() -> std::io::Result<()> {
     if cli.simple == 0 {
         writeln!(stdout, "Contains:")?;
     }
+    //co.into_par_iter().for_each(op)
     for path in co {
         print_with_highlight(&mut stdout, &path, search.name, cli.simple, args.case_sensitive)?;
     }
