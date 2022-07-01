@@ -54,13 +54,13 @@ struct Cli {
 
     /// Only search for exactly matching occurrences, any file only containing the query will be skipped
     ///
-    /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the query.
+    /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the search
     #[clap(short, long)]
     exact: bool,
 
     /// If enabled, the search will be case-sensitive
     /// 
-    /// Note that case-sensitivity will be activated automatically when the search query contains an uppercase letter.
+    /// Note that case-sensitivity will be activated automatically when the search query contains an uppercase letter
     #[clap(short, long)]
     case_sensitive: bool,
 

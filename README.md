@@ -2,10 +2,10 @@
 [![Crates.io](https://img.shields.io/crates/v/hunt?color=orange)](https://crates.io/crates/hunt)
 [![Publish](https://github.com/LyonSyonII/hunt-rs/actions/workflows/publish.yml/badge.svg?branch=v1.5.2)](https://github.com/LyonSyonII/hunt-rs/actions/workflows/publish.yml)  
 **A *highly-opinionated* simplified Find command made with Rust.**  
-By default it searches a file/folder in the entire drive and divides the result between exact matches and ones that only contain the query.  
+By default it searches a file/folder in the working directory and divides the result between exact matches and ones that only contain the query.  
 Results will be sorted alphabetically.
 
-For example, `hunt SomeFile` will search "SomeFile" from the root directory, and the output could be:
+For example, `hunt SomeFile /` will search "SomeFile" from the root directory, and the output could be:
     
     Contains:
     /SomeFileIsHere
@@ -17,16 +17,22 @@ For example, `hunt SomeFile` will search "SomeFile" from the root directory, and
 
 Check the [Benchmarks](#benchmarks) for a comparison with other tools.
 ## Usage
-    hunt [OPTIONS] <NAME> <LIMIT_TO_DIRS>...
+    hunt [OPTIONS] <NAME> <SEARCH_IN_DIRS>...
 
-By default, searches are case-insensitive, unless \<NAME> contains an uppercase letter.
+By default, searches are case-insensitive, unless \<NAME> contains an uppercase letter or the -c flag is set.
 
 ### Options
+    -c, --case-sensitive
+                   If enabled, the search will be case-sensitive
+
+                   Note that case-sensitivity will be activated automatically when the search query
+                   contains an uppercase letter.
+
     -e, --exact    Only search for exactly matching occurrences, any file only 
                    containing the query will be skipped
             
                     e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, 
-                    as its name contains more letters than the search.
+                    as its name contains more letters than the search
 
     -f, --first    Stop when first occurrence is found
 
