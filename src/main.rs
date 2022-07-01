@@ -268,21 +268,29 @@ fn print_with_highlight(stdout: &mut std::io::BufWriter<std::io::StdoutLock>, pa
             (start, start + s.len())
         };
         
-        let starts = get_start_end(search.starts);
-        let name = if search.name.is_empty() {
-            (starts.1, starts.1)
+        let starts_idx = get_start_end(search.starts);
+        let name_idx = if search.name.is_empty() {
+            (starts_idx.1, starts_idx.1)
         } else {
             get_start_end(search.name)
         };
-        let ends = if search.ends.is_empty() {
-            (name.1, name.1)
+        let ends_idx = if search.ends.is_empty() {
+            (name_idx.1, name_idx.1)
         } else {
             get_start_end(search.ends)
         };
 
         //println!("Starts: {starts:?}, Name: {name:?}, Ends: {ends:?}");
-        
-        return writeln!(stdout, "{}{}{}{}{}{}{}{}", ancestors.display(), std::path::MAIN_SEPARATOR, path.index(starts.0..starts.1).bright_purple().bold(), path.index(starts.1..name.0), path.index(name.0..name.1).bright_red().bold(), path.index(name.1..ends.0), path.index(ends.0..ends.1).purple().bold(), path.index(ends.1..));
+        let ancestors = ancestors.display();
+        let sep = std::path::MAIN_SEPARATOR;
+        let starts = &path[starts_idx.0..starts_idx.1].bright_purple().bold();
+        let starts_to_name = &path[starts_idx.1..name_idx.0];
+        let name = &path[name_idx.0..name_idx.1].bright_red().bold();
+        let name_to_ends = &path[name_idx.1..ends_idx.0];
+        let ends = &path[ends_idx.0..ends_idx.1].bright_purple().bold();
+        // Needed because we don't want to highlight the end of the path if "--ends" is not specified
+        let empty_ends = &path[ends_idx.1..];
+        return writeln!(stdout, "{ancestors}{sep}{starts}{starts_to_name}{name}{name_to_ends}{ends}{empty_ends}");
     } 
     
     writeln!(stdout, "{}", path.display())
