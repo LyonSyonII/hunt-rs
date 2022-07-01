@@ -216,8 +216,8 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, args: &Args, buffers: &
         FileType::All => true,
     };
 
-    let starts = !search.starts.is_empty() || fname.starts_with(search.starts);
-    let ends = !search.ends.is_empty() || fname.ends_with(search.ends);
+    let starts = search.starts.is_empty() || fname.starts_with(search.starts);
+    let ends = search.ends.is_empty() || fname.ends_with(search.ends);
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if fname == search.name {
@@ -253,18 +253,36 @@ fn search_path(dir: &Path, search: &Search, args: &Args, buffers: &Buffers) {
     }
 }
 
-fn print_with_highlight(stdout: &mut std::io::BufWriter<std::io::StdoutLock>, path: &Path, name: &str, simple: Output, case_sensitive: bool) -> std::io::Result<()> {
+fn print_with_highlight(stdout: &mut std::io::BufWriter<std::io::StdoutLock>, path: &Path, search: &Search, simple: Output, case_sensitive: bool) -> std::io::Result<()> {
     if simple == Output::Normal {
-        let path = path.to_string_lossy();
-        let search = if case_sensitive {
+        let ancestors = path.parent().unwrap();
+        let path = path.file_name().unwrap().to_string_lossy();
+        let result = if case_sensitive {
             path.to_string()
         } else {
             path.to_ascii_lowercase()
         };
+        
+        let get_start_end = |s: &str| {
+            let start = result.find(s).unwrap();
+            (start, start + s.len())
+        };
+        
+        let starts = get_start_end(search.starts);
+        let name = if search.name.is_empty() {
+            (starts.1, starts.1)
+        } else {
+            get_start_end(search.name)
+        };
+        let ends = if search.ends.is_empty() {
+            (name.1, name.1)
+        } else {
+            get_start_end(search.ends)
+        };
 
-        let start = search.rfind(name).unwrap();
-        let end = start + name.len();
-        return writeln!(stdout, "{}{}{}", path.index(..start), path.index(start..end).bright_red().bold(), path.index(end..));
+        //println!("Starts: {starts:?}, Name: {name:?}, Ends: {ends:?}");
+        
+        return writeln!(stdout, "{}{}{}{}{}{}{}{}", ancestors.display(), std::path::MAIN_SEPARATOR, path.index(starts.0..starts.1).bright_purple().bold(), path.index(starts.1..name.0), path.index(name.0..name.1).bright_red().bold(), path.index(name.1..ends.0), path.index(ends.0..ends.1).purple().bold(), path.index(ends.1..));
     } 
     
     writeln!(stdout, "{}", path.display())
@@ -348,7 +366,7 @@ fn main() -> std::io::Result<()> {
         writeln!(stdout, "Contains:")?;
     }
     for path in co {
-        print_with_highlight(&mut stdout, &path, search.name, simple, args.case_sensitive)?;
+        print_with_highlight(&mut stdout, &path, &search, simple, args.case_sensitive)?;
     }
     if simple == Output::Normal { 
         writeln!(stdout, "\nExact:")?; 
