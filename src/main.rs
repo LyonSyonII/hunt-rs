@@ -2,7 +2,7 @@ use clap::Parser;
 use parking_lot::Mutex;
 use colored::Colorize;
 use rayon::{
-    iter::{ParallelBridge, ParallelIterator, IntoParallelIterator},
+    iter::{ParallelBridge, ParallelIterator},
     slice::ParallelSliceMut,
 };
 use std::{
@@ -329,7 +329,7 @@ fn main() -> std::io::Result<()> {
 
     // Get results and sort them
     let (mut ex, mut co) = (buffers.0.into_inner(), buffers.1.into_inner());
-    
+
     if ex.is_empty() && co.is_empty() {
         println!("File not found");
         return Ok(());
