@@ -20,3 +20,4 @@ colored = { version = "2.0.0", features = [] }
 
 [profile.release]
 lto = "thin"
+codegen-units = 1

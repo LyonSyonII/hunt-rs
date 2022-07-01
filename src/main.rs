@@ -280,7 +280,7 @@ fn main() -> std::io::Result<()> {
     let name = match cli.name {
         // If directory is given but no file name is specified, print files in that directory
         // ex. hunt /home/user
-        Some(n) if n == "." || n.contains('/') => {
+        Some(n) if n == "." || n.contains(std::path::MAIN_SEPARATOR) => {
             cli.search_in_dirs.insert(0, PathBuf::from(n));
             String::new()
         }
