@@ -1,5 +1,5 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::{path::{Path, PathBuf}, num::NonZeroUsize};
+use std::{path::{Path, PathBuf}};
 
 use crate::structs::{Buffer, FileType, Search};
 
@@ -18,13 +18,6 @@ impl Search {
                     std::process::exit(1);
                 })
             });
-
-            //let threads = num_threads::num_threads().unwrap_or(NonZeroUsize::new(1).unwrap());
-            //let mut available_threads: usize = threads.into();
-            //
-            //for dir in dirs {
-            //    if ava    
-            //}
 
             // Search in directories
             dirs.par_bridge().for_each(|dir| {
