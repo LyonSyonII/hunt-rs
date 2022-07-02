@@ -1,6 +1,9 @@
 use clap::Parser;
+use parking_lot::Mutex;
 use std::{collections::HashSet, path::{PathBuf, Path}};
 
+pub type Buffer = Vec<PathBuf>;
+pub type Buffers = (Mutex<Buffer>, Mutex<Buffer>);
 pub struct Search {
     /// If the search must stop when a match is found.
     pub first: bool,
@@ -36,6 +39,7 @@ pub struct Search {
     pub hardcoded_ignore: HashSet<&'static Path>,
     /// Directories specified by the user to be searched in.
     pub dirs: Vec<PathBuf>, 
+    pub buffers: Buffers,
 }
 
 impl Search {
@@ -63,6 +67,7 @@ impl Search {
             explicit_ignore,
             hardcoded_ignore: HashSet::from_iter(["/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d", "/etc/audit"].iter().map(Path::new)),
             dirs: search_in_dirs,
+            buffers: (parking_lot::Mutex::new(Vec::new()), parking_lot::Mutex::new(Vec::new()))
         }
     }
 }
