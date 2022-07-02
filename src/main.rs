@@ -1,6 +1,6 @@
-mod structs;
-mod search;
 mod print;
+mod search;
+mod structs;
 use structs::Cli;
 
 #[global_allocator]
