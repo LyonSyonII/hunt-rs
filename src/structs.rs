@@ -149,7 +149,8 @@ impl From<Option<String>> for FileType {
 #[derive(clap::Parser, Debug)]
 #[clap(
     name = "Hunt",
-    about = "Simple command to search a file/folder by name on the entire drive\nBy default it searches all occurrences on the system"
+    about = "Simple command to search a file/folder by name on the entire drive\nBy default it searches all occurrences on the system",
+    version,
 )]
 pub struct Cli {
     /// Stop when first occurrence is found
