@@ -2,22 +2,39 @@ use clap::Parser;
 use std::{collections::HashSet, path::{PathBuf, Path}};
 
 pub struct Search {
+    /// If the search must stop when a match is found.
     pub first: bool,
+    /// If only exact matches must be accounted for.
     pub exact: bool,
+    /// If the search is case sensitive.
     pub case_sensitive: bool,
+    /// If the search is limited to specific directories.
     pub limit: bool,
+    /// If the output must be verbose or not.
     pub verbose: bool,
+    /// If hidden directories must be traversed and hidden files counted as matches.
     pub hidden: bool,
-    pub output: Output,
-    /// Name of the file/folder we're searching
-    pub name: String,
+    /// Type of the output. 
     /// 
+    /// Simple makes it not to be highlighted and removes the "Exact:" and "Contains:" distinctions.
+    /// 
+    /// In addition, SuperSimple does not sort the results.
+    pub output: Output,
+    /// Name of the file/folder we're searching.
+    pub name: String,
+    /// Pattern the query must start with.
     pub starts: String,
+    /// Pattern the query must end with.
     pub ends: String,
+    /// Type of the query. It can be a File, a Directory or All.
     pub ftype: FileType,
+    /// Directory the user is currently in, used by default to search into.
     pub current_dir: PathBuf,
+    /// Directories the user has stated to ignore.
     pub explicit_ignore: HashSet<PathBuf>,
+    /// Directories hard-coded to be ignored.
     pub hardcoded_ignore: HashSet<&'static Path>,
+    /// Directories specified by the user to be searched in.
     pub dirs: Vec<PathBuf>, 
 }
 

@@ -142,8 +142,7 @@ fn print_with_highlight(stdout: &mut std::io::BufWriter<std::io::StdoutLock>, pa
         } else {
             get_start_end(&search.ends)
         };
-
-        //println!("Starts: {starts:?}, Name: {name:?}, Ends: {ends:?}");
+        
         let ancestors = ancestors.display();
         let sep = std::path::MAIN_SEPARATOR;
         let starts = &path[starts_idx.0..starts_idx.1].bright_purple().bold();
