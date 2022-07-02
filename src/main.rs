@@ -8,7 +8,7 @@ use rayon::{
     slice::ParallelSliceMut,
 };
 use std::{
-    io::{Write},
+    io::Write,
     path::{Path, PathBuf},
     sync::atomic::AtomicBool,
 };
