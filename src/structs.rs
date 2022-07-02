@@ -228,8 +228,8 @@ impl Cli {
         let cli = Self::parse();
 
         let mut search_in_dirs = cli.search_in_dirs;
-        let starts = cli.starts_with.unwrap_or_default();
-        let ends = cli.ends_with.unwrap_or_default();
+        let mut starts = cli.starts_with.unwrap_or_default();
+        let mut ends = cli.ends_with.unwrap_or_default();
         let ftype = cli.file_type.into();
 
         let name = match cli.name {
@@ -243,8 +243,12 @@ impl Cli {
             None => String::new(),
         };
 
-        let case_sensitive =
-            cli.case_sensitive || name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
+        let case_sensitive = cli.case_sensitive || name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
+        if !case_sensitive {
+            starts.make_ascii_lowercase();
+            ends.make_ascii_lowercase();
+        }
+
         let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
 
         Search::new(

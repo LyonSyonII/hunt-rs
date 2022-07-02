@@ -1,7 +1,7 @@
+use crate::structs::{Output, Search};
 use colored::Colorize;
 use rayon::prelude::ParallelSliceMut;
 use std::io::Write;
-use crate::structs::{Output, Search};
 
 impl Search {
     pub fn print_results(self) -> std::io::Result<()> {
@@ -46,45 +46,45 @@ fn print_with_highlight(
     path: &std::path::Path,
     search: &Search,
 ) -> std::io::Result<()> {
-    if search.output == Output::Normal {
-        let ancestors = path.parent().unwrap();
-        let path = path.file_name().unwrap().to_string_lossy();
-        let result = if search.case_sensitive {
-            path.to_string()
-        } else {
-            path.to_ascii_lowercase()
-        };
-
-        let get_start_end = |s: &str| {
-            let start = result.find(s).unwrap();
-            (start, start + s.len())
-        };
-
-        let starts_idx = get_start_end(&search.starts);
-        let name_idx = if search.name.is_empty() {
-            (starts_idx.1, starts_idx.1)
-        } else {
-            get_start_end(&search.name)
-        };
-        let ends_idx = if search.ends.is_empty() {
-            (name_idx.1, name_idx.1)
-        } else {
-            get_start_end(&search.ends)
-        };
-
-        let ancestors = ancestors.display();
-        let sep = std::path::MAIN_SEPARATOR;
-        let starts = &path[starts_idx.0..starts_idx.1].bright_purple().bold();
-        let starts_to_name = &path[starts_idx.1..name_idx.0];
-        let name = &path[name_idx.0..name_idx.1].bright_red().bold();
-        let name_to_ends = &path[name_idx.1..ends_idx.0];
-        let ends = &path[ends_idx.0..ends_idx.1].bright_purple().bold();
-        let empty_ends = &path[ends_idx.1..]; // Needed because we don't want to highlight the end of the path if "--ends" is not specified
-        return writeln!(
-            stdout,
-            "{ancestors}{sep}{starts}{starts_to_name}{name}{name_to_ends}{ends}{empty_ends}"
-        );
+    if search.output != Output::Normal {
+        return writeln!(stdout, "{}", path.display());
     }
+    
+    let ancestors = path.parent().unwrap();
+    let fname = path.file_name().unwrap().to_string_lossy();
+    let sname: String = if search.case_sensitive {
+        fname.to_string()
+    } else {
+        fname.to_ascii_lowercase()
+    };
 
-    writeln!(stdout, "{}", path.display())
+    let get_start_end = |s: &str| {
+        let start = sname.find(s).unwrap();
+        (start, start + s.len())
+    };
+
+    let starts_idx = get_start_end(&search.starts);
+    let name_idx = if search.name.is_empty() {
+        (starts_idx.1, starts_idx.1)
+    } else {
+        get_start_end(&search.name)
+    };
+    let ends_idx = if search.ends.is_empty() {
+        (name_idx.1, name_idx.1)
+    } else {
+        get_start_end(&search.ends)
+    };
+
+    let ancestors = ancestors.display();
+    let sep = std::path::MAIN_SEPARATOR;
+    let starts = &fname[starts_idx.0..starts_idx.1].bright_purple().bold();
+    let starts_to_name = &fname[starts_idx.1..name_idx.0];
+    let name = &fname[name_idx.0..name_idx.1].bright_red().bold();
+    let name_to_ends = &fname[name_idx.1..ends_idx.0];
+    let ends = &fname[ends_idx.0..ends_idx.1].bright_purple().bold();
+    let empty_ends = &fname[ends_idx.1..]; // Needed because we don't want to highlight the end of the path if "--ends" is not specified
+    writeln!(
+        stdout,
+        "{ancestors}{sep}{starts}{starts_to_name}{name}{name_to_ends}{ends}{empty_ends}"
+    )
 }
