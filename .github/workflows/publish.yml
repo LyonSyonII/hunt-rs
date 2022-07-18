@@ -19,7 +19,7 @@ jobs:
 
         include:
           - name: linux
-            os: linux-latest
+            os: ubuntu-latest
             artifact_name: target/release/hunt
             asset_name: hunt-linux
           - name: windows
