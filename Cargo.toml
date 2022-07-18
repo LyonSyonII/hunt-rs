@@ -1,6 +1,6 @@
 [package]
 name = "hunt"
-description = "Simple command to search a file/folder by name on the entire drive."
+description = "Simple command to quickly search a file/folder by name."
 documentation = "https://github.com/LyonSyonII/hunt-rs"
 repository = "https://github.com/LyonSyonII/hunt-rs"
 keywords = ["algorithms", "filesystem"]
@@ -16,7 +16,7 @@ directories = "4.0.1"
 rayon = "1.5.3"
 parking_lot = "0.12.1"
 mimalloc = { version = "0.1.29", default-features = false }
-colored = { version = "2.0.0", features = [] }
+colored = { version = "2.0.0" }
 
 [profile.release]
 lto = "thin"
