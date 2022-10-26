@@ -1,5 +1,6 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::{path::{Path, PathBuf}};
+use tailcall::tailcall;
+use std::path::{Path, PathBuf};
 
 use crate::structs::{Buffer, FileType, Search};
 
@@ -27,6 +28,7 @@ impl Search {
     }
 }
 
+#[tailcall]
 fn search_path(dir: &Path, search: &Search) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.flatten().par_bridge().for_each(|entry| {
@@ -37,6 +39,7 @@ fn search_path(dir: &Path, search: &Search) {
     }
 }
 
+#[tailcall]
 fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     // Get entry name
     let fname = if search.case_sensitive {
@@ -80,24 +83,29 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     if !is_dir {
         return;
     }
+    
     // If entry is a directory, search inside it
+
     if let Ok(read) = std::fs::read_dir(&path) {
         read.flatten().par_bridge().for_each(|entry| {
+            //let rec = RECURSION_LEVEL.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            //println!("Recursion level: {rec}");
             search_dir(entry, search);
         })
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
     }
+    //RECURSION_LEVEL.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
 }
 
 fn print_var(var: &mut Buffer, first: bool, path: PathBuf) {
     if first {
-        let found = FOUND.load(std::sync::atomic::Ordering::Relaxed);
+        let found = FOUND.load(std::sync::atomic::Ordering::Acquire);
         if found {
             return;
         }
 
-        FOUND.store(true, std::sync::atomic::Ordering::Relaxed);
+        FOUND.store(true, std::sync::atomic::Ordering::Release);
         println!("{}", path.display());
         std::process::exit(0)
     } else {
