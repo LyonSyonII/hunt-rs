@@ -11,25 +11,23 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        name: [
-            linux,
-            windows,
-            macos
-        ]
+        name: [linux,windows,macos]
 
         include:
           - name: linux
             os: ubuntu-latest
-            artifact_name: target/release/hunt
-            asset_name: hunt-linux
+            release_artifact: target/release/hunt
+            debug_artifact: hunt-linux
+            release_name: 
           - name: windows
             os: windows-latest
-            artifact_name: target/release/hunt.exe
-            asset_name: hunt-windows
+            release_artifact: target/release/hunt.exe
+            debug_artifact: hunt-windows
+            release_name: platformer.dll
           - name: macos
             os: macos-latest
-            artifact_name: target/release/hunt
-            asset_name: hunt-macos
+            release_artifact: target/release/hunt
+            debug_artifact: hunt-macos
 
     steps:
     - uses: actions/checkout@v1
@@ -39,8 +37,11 @@ jobs:
         profile: minimal
         toolchain: stable
 
-    - name: Build
+    - name: Build Release
       run: cargo build --release --locked
+      
+    - name: Build Debug
+      run: cargo build --locked
 
     - name: Upload binaries to release
       uses: actions/upload-artifact@v2
