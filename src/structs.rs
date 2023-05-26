@@ -154,7 +154,7 @@ impl From<Option<String>> for FileType {
 #[command(
     name = "Hunt",
     about = "Simple command to search a file/folder by name on the current directory.\nBy default it searches all occurrences.",
-    version,
+    version
 )]
 pub struct Cli {
     /// Stop when first occurrence is found
@@ -166,7 +166,7 @@ pub struct Cli {
     /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the search
     #[arg(short, long)]
     exact: bool,
-    
+
     /// If enabled, all paths will be canonicalized.
     #[arg(short, long)]
     canonicalize: bool,
@@ -252,7 +252,8 @@ impl Cli {
             None => String::new(),
         };
 
-        let case_sensitive = cli.case_sensitive || name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
+        let case_sensitive =
+            cli.case_sensitive || name.contains(|c: char| c.is_alphabetic() && c.is_uppercase());
         if !case_sensitive {
             starts.make_ascii_lowercase();
             ends.make_ascii_lowercase();

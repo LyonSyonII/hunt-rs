@@ -21,7 +21,7 @@ fn print_results(search: Search) -> std::io::Result<()> {
         co.par_sort_unstable();
         ex.par_sort_unstable();
     }
-    
+
     // Print results
     let stdout = std::io::stdout().lock();
     let mut stdout = std::io::BufWriter::new(stdout);
@@ -49,7 +49,7 @@ fn print_with_highlight(
     if search.output != Output::Normal {
         return writeln!(stdout, "{}", path.display());
     }
-    
+
     let ancestors = path.parent().unwrap();
     let fname = path.file_name().unwrap().to_string_lossy();
     let sname: String = if search.case_sensitive {
