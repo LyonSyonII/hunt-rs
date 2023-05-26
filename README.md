@@ -22,6 +22,8 @@ Check the [Benchmarks](#benchmarks) for a comparison with other tools.
 By default, searches are case-insensitive, unless \<NAME> contains an uppercase letter or the -C flag is set.
 
 ### Options
+    -c, --canonicalize
+                   If enabled, all paths will be canonicalized.
     -C, --case-sensitive
                    If enabled, the search will be case-sensitive
 
