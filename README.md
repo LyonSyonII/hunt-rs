@@ -154,74 +154,41 @@ For benchmarking I'm using [hyperfine](https://github.com/sharkdp/hyperfine), a 
 These are done in a system with approximately 2,762,223 files, with a network drive and an external one.  
 Results on other systems may vary, so take this comparisons as a guide.  
 
+If you want to reproduce the benchmarks, you can do so by running the `benchmarks.sh` file from this repository.
 
 
 ### Searching file in ~/
 Find first occurrence of a heavily nested file in a hidden folder from the home directory.
+File is located in `/home/user/.wine/drive_c/users/user/AppData/Local/mygame/User Data/Crashpad/reports/SomeFile`.
 
 ```
 Benchmark 1: hunt --hidden --first --exact SomeFile ~/
-  Time (mean ± σ):      27.0 ms ±   7.1 ms    [User: 4.1 ms, System: 8.6 ms]
-  Range (min … max):    12.0 ms …  46.2 ms    78 runs
+  Time (mean ± σ):     180.2 ms ±   7.4 ms    [User: 406.6 ms, System: 1135.9 ms]
+  Range (min … max):   167.2 ms … 198.5 ms    16 runs
  
-Benchmark 2: fd --hidden --no-ignore --max-results 1 --color never SomeFile ~/
-  Time (mean ± σ):     167.1 ms ±   8.8 ms    [User: 553.8 ms, System: 1119.9 ms]
-  Range (min … max):   154.2 ms … 189.1 ms    17 runs
+Benchmark 2: fd --hidden --no-ignore --glob --color=never --max-results=1 SomeFile ~/
+  Time (mean ± σ):     913.6 ms ±  52.5 ms    [User: 2584.8 ms, System: 4628.6 ms]
+  Range (min … max):   858.6 ms … 1018.6 ms    10 runs
  
-Benchmark 3: find ~/ -name SomeFile -print -quit
-  Time (mean ± σ):      1.111 s ±  0.093 s    [User: 0.132 s, System: 0.397 s]
-  Range (min … max):    1.060 s …  1.368 s    10 runs
+Benchmark 3: find ~/ -name SomeFile -print -quit 2>/dev/null
+  Time (mean ± σ):      2.219 s ±  0.071 s    [User: 0.587 s, System: 0.988 s]
+  Range (min … max):    2.160 s …  2.395 s    10 runs
  
 Benchmark 4: locate -n 1 -A SomeFile
-  Time (mean ± σ):     228.3 ms ±   1.7 ms    [User: 225.4 ms, System: 2.7 ms]
-  Range (min … max):   226.8 ms … 232.5 ms    13 runs
+  Time (mean ± σ):      1.244 s ±  0.015 s    [User: 1.231 s, System: 0.010 s]
+  Range (min … max):    1.231 s …  1.281 s    10 runs
  
 Summary
-  'hunt -h -f -e SomeFile ~/' ran
-    6.19 ± 1.66 times faster than 'fd -HI --max-results 1 -c never SomeFile ~/'
-    8.45 ± 2.22 times faster than 'locate -n 1 -A SomeFile'
-   41.17 ± 11.36 times faster than 'find ~/ -name SomeFile -print -quit'
+  'hunt --hidden --first --exact SomeFile ~/' ran
+    5.07 ± 0.36 times faster than 'fd --hidden --no-ignore --glob --color=never --max-results=1 SomeFile ~/'
+    6.90 ± 0.30 times faster than 'locate -n 1 -A SomeFile'
+   12.31 ± 0.64 times faster than 'find ~/ -name SomeFile -print -quit 2>/dev/null'
 ```
 
 #### Hunt
 --hidden, search all files (it normally ignores hidden files and directories in the [Ignore List](#options)).  
 --first, stop when first occurrence is found.  
 --exact, only search for files/folders named "SomeFile", names that only contain the pattern will be skipped.  
-
-```
-Benchmark 1: hunt --hidden --first --exact SomeFile ~/
-  Time (mean ± σ):      27.0 ms ±   7.1 ms    [User: 4.1 ms, System: 8.6 ms]
-  Range (min … max):    12.0 ms …  46.2 ms    78 runs
-```
-
-#### Fd
-```
-Benchmark 2: fd --hidden --no-ignore --max-results 1 --color never SomeFile ~/
-  Time (mean ± σ):     167.1 ms ±   8.8 ms    [User: 553.8 ms, System: 1119.9 ms]
-  Range (min … max):   154.2 ms … 189.1 ms    17 runs
-```
-
-#### Find
-```
-Benchmark 3: find ~/ -name SomeFile -print -quit
-  Time (mean ± σ):      1.111 s ±  0.093 s    [User: 0.132 s, System: 0.397 s]
-  Range (min … max):    1.060 s …  1.368 s    10 runs
-```
-
-#### Locate
-```
-Benchmark 4: locate -n 1 -A SomeFile
-  Time (mean ± σ):     228.3 ms ±   1.7 ms    [User: 225.4 ms, System: 2.7 ms]
-  Range (min … max):   226.8 ms … 232.5 ms    13 runs
-```
-
-#### Summary
-```
-'hunt -h -f -e SomeFile ~/' ran
-   6.19 ± 1.66 times faster than 'fd -HI --max-results 1 -c never SomeFile ~/'
-   8.45 ± 2.22 times faster than 'locate -n 1 -A SomeFile'
-  41.17 ± 11.36 times faster than 'find ~/ -name SomeFile -print -quit'
-```
 
 ### Searching all files that contain "SomeFile"
 Find all occurrences of "SomeFile" from the root directory (worst case scenario, checking all files in the system). 
