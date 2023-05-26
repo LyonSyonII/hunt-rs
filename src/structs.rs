@@ -12,6 +12,8 @@ pub struct Search {
     pub first: bool,
     /// If only exact matches must be accounted for.
     pub exact: bool,
+    /// If all paths should be canonicalized.
+    pub canonicalize: bool,
     /// If the search is case sensitive.
     pub case_sensitive: bool,
     /// If the search is limited to specific directories.
@@ -50,6 +52,7 @@ impl Search {
     pub fn new(
         first: bool,
         exact: bool,
+        canonicalize: bool,
         case_sensitive: bool,
         limit: bool,
         verbose: bool,
@@ -71,6 +74,7 @@ impl Search {
         Search {
             first,
             exact,
+            canonicalize,
             case_sensitive,
             limit,
             verbose,
@@ -147,65 +151,69 @@ impl From<Option<String>> for FileType {
 }
 
 #[derive(clap::Parser, Debug)]
-#[clap(
+#[command(
     name = "Hunt",
     about = "Simple command to search a file/folder by name on the current directory.\nBy default it searches all occurrences.",
     version,
 )]
 pub struct Cli {
     /// Stop when first occurrence is found
-    #[clap(short, long)]
+    #[arg(short, long)]
     first: bool,
 
     /// Only search for exactly matching occurrences, any file only containing the query will be skipped
     ///
     /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the search
-    #[clap(short, long)]
+    #[arg(short, long)]
     exact: bool,
+    
+    /// If enabled, all paths will be canonicalized.
+    #[arg(short, long)]
+    canonicalize: bool,
 
     /// If enabled, the search will be case-sensitive
     ///
     /// Note that case-sensitivity will be activated automatically when the search query contains an uppercase letter
-    #[clap(short, long)]
+    #[arg(short = 'C', long)]
     case_sensitive: bool,
 
     /// Print verbose output
     ///
     /// It'll show all errors found:    
     /// e.g. "Could not read /proc/81261/map_files"
-    #[clap(short, long)]
+    #[arg(short, long)]
     verbose: bool,
 
     /// Prints without formatting (without "Contains:" and "Exact:")
     ///
     /// -ss Output is not sorted
-    #[clap(short, long, action = clap::ArgAction::Count)]
+    #[arg(short, long, action = clap::ArgAction::Count)]
     simple: u8,
 
     /// If enabled, it searches inside hidden directories
     ///
     /// If not enabled, hidden directories (starting with '.') and "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit" will be skipped
-    #[clap(short, long)]
+    #[arg(short = 'H', long)]
     hidden: bool,
 
     /// Only files that start with this will be found
-    #[clap(short = 'S', long = "starts")]
+    #[arg(short = 'S', long = "starts")]
     starts_with: Option<String>,
 
     /// Only files that end with this will be found
-    #[clap(short = 'E', long = "ends")]
+    #[arg(short = 'E', long = "ends")]
     ends_with: Option<String>,
 
     /// Specifies the type of the file
     ///
     /// 'f' -> file | 'd' -> directory
-    #[clap(short = 't', long = "type")]
+    #[arg(short = 't', long = "type")]
     file_type: Option<String>,
 
     /// Ignores this directories. The format is:
     ///
     /// -i dir1,dir2,dir3,...
-    #[clap(short = 'i', long = "ignore", parse(try_from_str = parse_ignore_dirs))]
+    #[arg(short = 'i', long = "ignore", value_parser = parse_ignore_dirs)]
     ignore_dirs: Option<HashSet<PathBuf>>,
 
     /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
@@ -220,7 +228,7 @@ pub struct Cli {
     /// These directories are treated independently, so if one is nested into another the search will be done two times:
     ///
     /// e.g. "hunt somefile /home/user /home/user/downloads" will search in the home directory, and because /home/user/downloads is inside it, /downloads will be traversed two times
-    #[clap(required = false)]
+    #[arg(required = false)]
     search_in_dirs: Vec<PathBuf>,
 }
 
@@ -255,6 +263,7 @@ impl Cli {
         Search::new(
             cli.first,
             cli.exact,
+            cli.canonicalize,
             case_sensitive,
             !search_in_dirs.is_empty(),
             cli.verbose,

@@ -12,7 +12,7 @@ impl Search {
 fn print_results(search: Search) -> std::io::Result<()> {
     let (mut ex, mut co) = (search.buffers.0.lock(), search.buffers.1.lock());
 
-    if ex.is_empty() && co.is_empty() {
+    if ex.is_empty() && co.is_empty() && search.output == Output::Normal {
         println!("File not found");
         return Ok(());
     }
@@ -21,7 +21,7 @@ fn print_results(search: Search) -> std::io::Result<()> {
         co.par_sort_unstable();
         ex.par_sort_unstable();
     }
-
+    
     // Print results
     let stdout = std::io::stdout().lock();
     let mut stdout = std::io::BufWriter::new(stdout);

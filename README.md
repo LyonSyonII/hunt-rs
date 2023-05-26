@@ -17,12 +17,12 @@ For example, `hunt SomeFile /` will search "SomeFile" from the root directory, a
 
 Check the [Benchmarks](#benchmarks) for a comparison with other tools.
 ## Usage
-    hunt [OPTIONS] <NAME> <SEARCH_IN_DIRS>...
+    hunt [OPTIONS] [NAME] [SEARCH_IN_DIRS]...
 
-By default, searches are case-insensitive, unless \<NAME> contains an uppercase letter or the -c flag is set.
+By default, searches are case-insensitive, unless \<NAME> contains an uppercase letter or the -C flag is set.
 
 ### Options
-    -c, --case-sensitive
+    -C, --case-sensitive
                    If enabled, the search will be case-sensitive
 
                    Note that case-sensitivity will be activated automatically when the search query
@@ -36,7 +36,7 @@ By default, searches are case-insensitive, unless \<NAME> contains an uppercase 
 
     -f, --first    Stop when first occurrence is found
 
-    -h, --hidden   If enabled, it searches inside hidden and ignored directories.
+    -H, --hidden   If enabled, it searches inside hidden and ignored directories.
 
                    The list of ignored directories is:
                    "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", 
@@ -68,7 +68,7 @@ By default, searches are case-insensitive, unless \<NAME> contains an uppercase 
     -ss            Same as -s, but without sorting the output
 
 
-        --help     Print help information
+    -h  --help     Print help information
         
 If the --first flag is set, the order in which the file will be searched is [current_dir, home_dir, root].  
 If you're already in one of these directories, "current_dir" will be skipped.

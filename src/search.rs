@@ -1,8 +1,7 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use tailcall::tailcall;
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}};
 
-use crate::structs::{Buffer, FileType, Search};
+use crate::structs::{Buffer, FileType, Search, Output};
 
 static FOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -12,23 +11,31 @@ impl Search {
         if !self.limit {
             search_path(&self.current_dir, self);
         } else {
-            // Check if paths are valid
-            let dirs = self.dirs.iter().map(|s| {
-                std::fs::canonicalize(s).unwrap_or_else(|_| {
-                    eprintln!("ERROR: The {:?} directory does not exist", s);
-                    std::process::exit(1);
-                })
+            // Check if paths are valid and canonicalize if necessary
+            let dirs = self.dirs.iter().map(|path| {
+                if !path.exists() {
+                    eprintln!("ERROR: The {:?} directory does not exist", path);
+                    std::process::exit(1)
+                }
+                
+                if self.canonicalize {
+                    std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
+                        eprintln!("ERROR: The {:?} directory does not exist", path);
+                        std::process::exit(1)
+                    }))
+                } else {
+                    std::borrow::Cow::Borrowed(path)
+                }
             });
-
+            
             // Search in directories
             dirs.par_bridge().for_each(|dir| {
-                search_path(&dir, self);
+                search_path(dir.as_ref(), self);
             });
         };
     }
 }
 
-#[tailcall]
 fn search_path(dir: &Path, search: &Search) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.flatten().par_bridge().for_each(|entry| {
@@ -39,7 +46,6 @@ fn search_path(dir: &Path, search: &Search) {
     }
 }
 
-#[tailcall]
 fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     // Get entry name
     let fname = if search.case_sensitive {
@@ -49,7 +55,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     };
     let fname = fname.to_string_lossy();
     let path = entry.path();
-
+    
     if search.explicit_ignore.contains(&path) {
         return;
     }
@@ -71,11 +77,11 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if fname == search.name {
-            print_var(&mut search.buffers.0.lock(), search.first, path.clone());
+            print_var(&mut search.buffers.0.lock(), search.first, path.clone(), search.output);
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && fname.contains(&search.name) {
-            print_var(&mut search.buffers.1.lock(), search.first, path.clone());
+            print_var(&mut search.buffers.1.lock(), search.first, path.clone(), search.output);
         }
     }
 
@@ -83,22 +89,18 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     if !is_dir {
         return;
     }
-    
-    // If entry is a directory, search inside it
 
     if let Ok(read) = std::fs::read_dir(&path) {
         read.flatten().par_bridge().for_each(|entry| {
-            //let rec = RECURSION_LEVEL.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            //println!("Recursion level: {rec}");
             search_dir(entry, search);
         })
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
     }
-    //RECURSION_LEVEL.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    // recursion_level.fetch_sub(1, Ordering::AcqRel);
 }
 
-fn print_var(var: &mut Buffer, first: bool, path: PathBuf) {
+fn print_var(var: &mut Buffer, first: bool, path: PathBuf, output: Output) {
     if first {
         let found = FOUND.load(std::sync::atomic::Ordering::Acquire);
         if found {
@@ -108,7 +110,11 @@ fn print_var(var: &mut Buffer, first: bool, path: PathBuf) {
         FOUND.store(true, std::sync::atomic::Ordering::Release);
         println!("{}", path.display());
         std::process::exit(0)
-    } else {
+    }
+    else if output == Output::SuperSimple {
+        println!("{}", path.display());
+    }
+    else {
         var.push(path);
     }
 }
