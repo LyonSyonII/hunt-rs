@@ -2,7 +2,9 @@ use clap::Parser;
 use parking_lot::Mutex;
 use std::{
     collections::HashSet,
+    ops::Index,
     path::{Path, PathBuf},
+    ptr,
 };
 
 pub type Buffer = Vec<PathBuf>;
@@ -41,7 +43,7 @@ pub struct Search {
     /// Directories the user has stated to ignore.
     pub explicit_ignore: HashSet<PathBuf>,
     /// Directories hard-coded to be ignored.
-    pub hardcoded_ignore: HashSet<&'static Path>,
+    pub hardcoded_ignore: [&'static str; 19],
     /// Directories specified by the user to be searched in.
     pub dirs: Vec<PathBuf>,
     pub buffers: Buffers,
@@ -86,7 +88,7 @@ impl Search {
             ftype,
             current_dir: std::env::current_dir().expect("Current directory could not be read"),
             explicit_ignore,
-            hardcoded_ignore: HashSet::from_iter(
+            hardcoded_ignore: sorted(
                 [
                     "/proc",
                     "/root",
@@ -107,9 +109,7 @@ impl Search {
                     "/etc/pacman.d",
                     "/etc/sudoers.d",
                     "/etc/audit",
-                ]
-                .iter()
-                .map(Path::new),
+                ],
             ),
             dirs: search_in_dirs,
             buffers: (
@@ -283,4 +283,84 @@ impl Cli {
 fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
     let inp = inp.trim().replace(',', " ");
     Ok(HashSet::from_iter(inp.split(',').map(PathBuf::from)))
+}
+
+const fn sorted<const N: usize>(mut array: [&'static str; N]) -> [&'static str; N] {
+    let mut i = 0;
+    while i < array.len() {
+        let mut j = 0;
+        while j < array.len() {
+            if lt(array[i], array[j]) {
+                let tmp = array[i];
+                array[i] = array[j];
+                array[j] = tmp;
+            }
+
+            j += 1;
+        }
+
+        i += 1;
+    }
+    array
+}
+
+const fn lt(lhs: &str, rhs: &str) -> bool {
+    let lhs = lhs.as_bytes();
+    let rhs = rhs.as_bytes();
+
+    let smallest = if lhs.len() < rhs.len() {
+        lhs.len()
+    } else {
+        rhs.len()
+    };
+
+    let mut i = 0;
+    while i < smallest {
+        let lhs = lhs[i];
+        let rhs = rhs[i];
+
+        if lhs < rhs {
+            return true;
+        }
+        if lhs > rhs {
+            return false;
+        }
+
+        i += 1;
+    }
+    lhs.len() == smallest
+}
+
+#[test]
+fn const_sorted() {
+    fn check<const N: usize>(mut array: [&'static str; N]) {
+        let sorted = sorted(array);
+        array.sort_unstable();
+        assert_eq!(sorted, array)
+    }
+
+    check(["b", "c", "a", "d"]);
+    check(["b", "c", "a", "d", "aa"]);
+    check([
+        "/proc",
+        "/root",
+        "/booty",
+        "/boot",
+        "/dev",
+        "/lib",
+        "/lib64",
+        "/lost+found",
+        "/run",
+        "/sbin",
+        "/sys",
+        "/tmp",
+        "/var/tmp",
+        "/var/lib",
+        "/var/log",
+        "/var/db",
+        "/var/cache",
+        "/etc/pacman.d",
+        "/etc/sudoers.d",
+        "/etc/audit",
+    ])
 }

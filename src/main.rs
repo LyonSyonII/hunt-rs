@@ -2,6 +2,7 @@ mod print;
 mod search;
 mod structs;
 
+#[cfg(not(test))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 

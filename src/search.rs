@@ -1,5 +1,5 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::{path::{Path, PathBuf}, sync::atomic::{AtomicBool, AtomicUsize}};
+use std::path::{Path, PathBuf};
 
 use crate::structs::{Buffer, FileType, Output, Search};
 
@@ -61,7 +61,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
         return;
     }
 
-    if !search.hidden && (is_hidden(&entry) || search.hardcoded_ignore.contains(path.as_path())) {
+    if !search.hidden && (is_hidden(&entry) || search.hardcoded_ignore.binary_search_by(|p| std::path::Path::new(p).cmp(&path)).is_ok()) {
         return;
     }
 
@@ -155,14 +155,14 @@ fn search_path_queue(path: &Path, search: &Search) {
     });
 
     ADDING.store(STACK.lock().len(), std::sync::atomic::Ordering::Release);
-    
+
     rayon::scope(|s| {
         while ADDING.load(std::sync::atomic::Ordering::Acquire) > 0 {
             if let Some(entry) = STACK.lock().pop() {
                 s.spawn(move |_| {
                     // Check if file is what we're searching.
                     if check_file(&entry, search).is_err() { return }
-                    
+
                     let path = entry.path();
                     if path.is_dir() {
                         let mut lock = STACK.lock();
