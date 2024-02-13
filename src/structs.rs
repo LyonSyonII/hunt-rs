@@ -41,7 +41,7 @@ pub struct Search {
     /// Directory the user is currently in, used by default to search into.
     pub current_dir: PathBuf,
     /// Directories the user has stated to ignore.
-    pub explicit_ignore: HashSet<PathBuf>,
+    pub explicit_ignore: Vec<PathBuf>,
     /// Directories hard-coded to be ignored.
     pub hardcoded_ignore: [&'static str; 19],
     /// Directories specified by the user to be searched in.
@@ -64,7 +64,7 @@ impl Search {
         starts: String,
         ends: String,
         ftype: FileType,
-        explicit_ignore: HashSet<PathBuf>,
+        explicit_ignore: Vec<PathBuf>,
         search_in_dirs: Vec<PathBuf>,
     ) -> Search {
         let output = match output {
@@ -213,8 +213,8 @@ pub struct Cli {
     /// Ignores this directories. The format is:
     ///
     /// -i dir1,dir2,dir3,...
-    #[arg(short = 'i', long = "ignore", value_parser = parse_ignore_dirs)]
-    ignore_dirs: Option<HashSet<PathBuf>>,
+    #[arg(short = 'i', long = "ignore", value_delimiter = ',')]
+    ignore_dirs: Option<Vec<PathBuf>>,
 
     /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
     name: Option<String>,
@@ -259,7 +259,12 @@ impl Cli {
             ends.make_ascii_lowercase();
         }
 
-        let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
+        let mut ignore_dirs = cli.ignore_dirs.unwrap_or_default();
+        for p in ignore_dirs.iter_mut() {
+            if let Ok(c) = p.canonicalize() {
+                *p = c;
+            }
+        }
 
         Search::new(
             cli.first,
@@ -278,11 +283,6 @@ impl Cli {
             search_in_dirs,
         )
     }
-}
-
-fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
-    let inp = inp.trim().replace(',', " ");
-    Ok(HashSet::from_iter(inp.split(',').map(PathBuf::from)))
 }
 
 const fn sorted<const N: usize>(mut array: [&'static str; N]) -> [&'static str; N] {
