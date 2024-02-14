@@ -27,11 +27,9 @@ impl Search {
                     std::borrow::Cow::Borrowed(path)
                 }
             });
-
             // Search in directories
             dirs.par_bridge().for_each(|dir| {
-                search_path(dir.as_ref(), self);
-                // search_path_queue(dir.as_ref(), self)
+                search_path(dir.as_ref(), self)
             });
         };
     }
@@ -108,7 +106,6 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
     }
-    // recursion_level.fetch_sub(1, Ordering::AcqRel);
 }
 
 fn print_var(var: &mut Buffer, first: bool, path: PathBuf, output: Output) {
