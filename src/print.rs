@@ -52,10 +52,10 @@ fn print_with_highlight(
 
     let ancestors = path.parent().unwrap();
     let fname = path.file_name().unwrap().to_string_lossy();
-    let sname: String = if search.case_sensitive {
-        fname.to_string()
+    let sname = if search.case_sensitive {
+        fname.clone()
     } else {
-        fname.to_ascii_lowercase()
+        fname.to_ascii_lowercase().into()
     };
 
     let get_start_end = |s: &str| {
