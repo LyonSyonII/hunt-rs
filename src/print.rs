@@ -52,8 +52,8 @@ fn print_with_highlight(
 
     let ancestors = path.parent().unwrap();
     let fname = path.file_name().unwrap().to_string_lossy();
-    let sname = if search.case_sensitive {
-        fname.clone()
+    let sname: std::borrow::Cow<'_, str> = if search.case_sensitive {
+        fname.as_ref().into()
     } else {
         fname.to_ascii_lowercase().into()
     };
