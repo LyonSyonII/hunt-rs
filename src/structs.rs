@@ -1,10 +1,7 @@
 use clap::Parser;
-use parking_lot::Mutex;
+
 use std::{
-    collections::HashSet,
-    ops::Index,
-    path::{Path, PathBuf},
-    ptr,
+    path::{PathBuf},
 };
 
 pub type Buffer = Vec<PathBuf>;

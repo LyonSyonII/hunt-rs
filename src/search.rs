@@ -1,5 +1,5 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 use crate::structs::{Buffer, Buffers, FileType, Output, Search};
 
