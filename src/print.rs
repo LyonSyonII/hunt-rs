@@ -18,8 +18,8 @@ fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
     }
 
     if search.output != Output::SuperSimple {
-        co.par_sort_unstable();
-        ex.par_sort_unstable();
+        co.par_sort();
+        ex.par_sort();
     }
 
     // Print results

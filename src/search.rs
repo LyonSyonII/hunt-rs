@@ -96,7 +96,6 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) -> Buffers {
 
     if let Ok(read) = std::fs::read_dir(&path) {
         let b = par_fold(read.flatten(), |entry| search_dir(entry, search));
-
         buffers.0.extend(b.0);
         buffers.1.extend(b.1);
     } else if search.verbose {
