@@ -1,4 +1,4 @@
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use rayon::{iter::{ParallelBridge, ParallelIterator}, slice::ParallelSliceMut};
 use std::path::Path;
 
 use crate::structs::{Buffer, Buffers, FileType, Output, Search};
