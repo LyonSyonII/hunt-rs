@@ -33,8 +33,6 @@ pub struct Search {
     pub ends: String,
     /// Type of the query. It can be a File, a Directory or All.
     pub ftype: FileType,
-    /// Directory the user is currently in, used by default to search into.
-    pub current_dir: PathBuf,
     /// Directories the user has stated to ignore.
     pub explicit_ignore: Vec<PathBuf>,
     /// Directories hard-coded to be ignored.
@@ -80,7 +78,6 @@ impl Search {
             starts,
             ends,
             ftype,
-            current_dir: std::env::current_dir().expect("Current directory could not be read"),
             explicit_ignore,
             hardcoded_ignore: sorted([
                 "/proc",
@@ -249,7 +246,10 @@ impl Cli {
 
         let mut ignore_dirs = cli.ignore_dirs.unwrap_or_default();
         for p in ignore_dirs.iter_mut() {
-            if let Ok(c) = p.canonicalize() {
+            if !cli.canonicalize {
+                *p = std::path::Path::new("./").join(&p)
+            }
+            else if let Ok(c) = p.canonicalize() {
                 *p = c;
             }
         }

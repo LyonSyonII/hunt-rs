@@ -1,4 +1,4 @@
-use rayon::{iter::{ParallelBridge, ParallelIterator}, slice::ParallelSliceMut};
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::path::Path;
 
 use crate::structs::{Buffer, Buffers, FileType, Output, Search};
@@ -9,7 +9,12 @@ impl Search {
     pub fn search(&self) -> Buffers {
         // If no limit, search current directory
         if !self.limit {
-            return search_path(&self.current_dir, self);
+            let path = if self.canonicalize {
+                std::env::current_dir().expect("Could not read current directory")
+            } else {
+                std::path::Path::new(".").to_owned()
+            };
+            return search_path(&path, self);
         }
         // Check if paths are valid and canonicalize if necessary
         let dirs = self.dirs.iter().map(|path| {
