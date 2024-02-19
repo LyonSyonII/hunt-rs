@@ -21,7 +21,7 @@ fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
         co.par_sort_unstable();
         ex.par_sort_unstable();
     }
-    
+
     // Print results
     let stdout = std::io::stdout().lock();
     let mut stdout = std::io::BufWriter::new(stdout);

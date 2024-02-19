@@ -1,8 +1,6 @@
 use clap::Parser;
 
-use std::{
-    path::{PathBuf},
-};
+use std::path::PathBuf;
 
 pub type Buffer = Vec<PathBuf>;
 pub type Buffers = (Buffer, Buffer);

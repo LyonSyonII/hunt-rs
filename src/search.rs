@@ -1,5 +1,5 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::path::{Path};
+use std::path::Path;
 
 use crate::structs::{Buffer, Buffers, FileType, Output, Search};
 
@@ -9,27 +9,26 @@ impl Search {
     pub fn search(&self) -> Buffers {
         // If no limit, search current directory
         if !self.limit {
-            search_path(&self.current_dir, self)
-        } else {
-            // Check if paths are valid and canonicalize if necessary
-            let dirs = self.dirs.iter().map(|path| {
-                if !path.exists() {
+            return search_path(&self.current_dir, self);
+        }
+        // Check if paths are valid and canonicalize if necessary
+        let dirs = self.dirs.iter().map(|path| {
+            if !path.exists() {
+                eprintln!("ERROR: The {:?} directory does not exist", path);
+                std::process::exit(1)
+            }
+
+            if self.canonicalize {
+                std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
                     eprintln!("ERROR: The {:?} directory does not exist", path);
                     std::process::exit(1)
-                }
-
-                if self.canonicalize {
-                    std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
-                        eprintln!("ERROR: The {:?} directory does not exist", path);
-                        std::process::exit(1)
-                    }))
-                } else {
-                    std::borrow::Cow::Borrowed(path)
-                }
-            });
-            // Search in directories
-            par_fold(dirs, |dir| search_path(dir.as_ref(), self))
-        }
+                }))
+            } else {
+                std::borrow::Cow::Borrowed(path)
+            }
+        });
+        // Search in directories
+        par_fold(dirs, |dir| search_path(dir.as_ref(), self))
     }
 }
 
@@ -120,22 +119,16 @@ where
     iter.into_iter()
         .par_bridge()
         .map(map)
-        .fold(
-            new_buffers,
-            |mut acc, results| {
-                acc.0.extend(results.0);
-                acc.1.extend(results.1);
-                acc
-            },
-        )
-        .reduce(
-            new_buffers,
-            |mut acc, v| {
-                acc.0.extend(v.0);
-                acc.1.extend(v.1);
-                acc
-            },
-        )
+        .fold(new_buffers, |mut acc, results| {
+            acc.0.extend(results.0);
+            acc.1.extend(results.1);
+            acc
+        })
+        .reduce(new_buffers, |mut acc, v| {
+            acc.0.extend(v.0);
+            acc.1.extend(v.1);
+            acc
+        })
 }
 
 fn print_var(var: &mut Buffer, first: bool, path: &Path, output: Output) {
