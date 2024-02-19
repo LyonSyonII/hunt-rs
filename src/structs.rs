@@ -8,7 +8,7 @@ use std::{
 };
 
 pub type Buffer = Vec<PathBuf>;
-pub type Buffers = (Mutex<Buffer>, Mutex<Buffer>);
+pub type Buffers = (Buffer, Buffer);
 pub struct Search {
     /// If the search must stop when a match is found.
     pub first: bool,
@@ -46,7 +46,6 @@ pub struct Search {
     pub hardcoded_ignore: [&'static str; 19],
     /// Directories specified by the user to be searched in.
     pub dirs: Vec<PathBuf>,
-    pub buffers: Buffers,
 }
 
 impl Search {
@@ -88,34 +87,28 @@ impl Search {
             ftype,
             current_dir: std::env::current_dir().expect("Current directory could not be read"),
             explicit_ignore,
-            hardcoded_ignore: sorted(
-                [
-                    "/proc",
-                    "/root",
-                    "/boot",
-                    "/dev",
-                    "/lib",
-                    "/lib64",
-                    "/lost+found",
-                    "/run",
-                    "/sbin",
-                    "/sys",
-                    "/tmp",
-                    "/var/tmp",
-                    "/var/lib",
-                    "/var/log",
-                    "/var/db",
-                    "/var/cache",
-                    "/etc/pacman.d",
-                    "/etc/sudoers.d",
-                    "/etc/audit",
-                ],
-            ),
+            hardcoded_ignore: sorted([
+                "/proc",
+                "/root",
+                "/boot",
+                "/dev",
+                "/lib",
+                "/lib64",
+                "/lost+found",
+                "/run",
+                "/sbin",
+                "/sys",
+                "/tmp",
+                "/var/tmp",
+                "/var/lib",
+                "/var/log",
+                "/var/db",
+                "/var/cache",
+                "/etc/pacman.d",
+                "/etc/sudoers.d",
+                "/etc/audit",
+            ]),
             dirs: search_in_dirs,
-            buffers: (
-                parking_lot::Mutex::new(Vec::new()),
-                parking_lot::Mutex::new(Vec::new()),
-            ),
         }
     }
 }

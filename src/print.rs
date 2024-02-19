@@ -1,16 +1,16 @@
-use crate::structs::{Output, Search};
+use crate::structs::{Buffers, Output, Search};
 use colored::Colorize;
 use rayon::prelude::ParallelSliceMut;
 use std::io::Write;
 
 impl Search {
-    pub fn print_results(self) -> std::io::Result<()> {
-        print_results(self)
+    pub fn print_results(self, buffers: Buffers) -> std::io::Result<()> {
+        print_results(self, buffers)
     }
 }
 
-fn print_results(search: Search) -> std::io::Result<()> {
-    let (mut ex, mut co) = (search.buffers.0.lock(), search.buffers.1.lock());
+fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
+    let (mut ex, mut co) = buffers;
 
     if ex.is_empty() && co.is_empty() && search.output == Output::Normal {
         println!("File not found");
@@ -21,7 +21,7 @@ fn print_results(search: Search) -> std::io::Result<()> {
         co.par_sort_unstable();
         ex.par_sort_unstable();
     }
-
+    
     // Print results
     let stdout = std::io::stdout().lock();
     let mut stdout = std::io::BufWriter::new(stdout);

@@ -1,15 +1,15 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::path::{Path, PathBuf};
 
-use crate::structs::{Buffer, FileType, Output, Search};
+use crate::structs::{Buffer, Buffers, FileType, Output, Search};
 
 static FOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 impl Search {
-    pub fn search(&self) {
+    pub fn search(&self) -> Buffers {
         // If no limit, search current directory
         if !self.limit {
-            search_path(&self.current_dir, self);
+            search_path(&self.current_dir, self)
         } else {
             // Check if paths are valid and canonicalize if necessary
             let dirs = self.dirs.iter().map(|path| {
@@ -28,24 +28,57 @@ impl Search {
                 }
             });
             // Search in directories
-            dirs.par_bridge().for_each(|dir| {
-                search_path(dir.as_ref(), self)
-            });
-        };
+            dirs.par_bridge()
+                .fold(
+                    || (Vec::new(), Vec::new()),
+                    |mut v, dir| {
+                        let results = search_path(dir.as_ref(), self);
+                        v.0.extend(results.0);
+                        v.1.extend(results.1);
+                        v
+                    },
+                )
+                .reduce(
+                    || (Vec::new(), Vec::new()),
+                    |mut acc, v| {
+                        acc.0.extend(v.0);
+                        acc.1.extend(v.1);
+                        acc
+                    },
+                )
+        }
     }
 }
 
-fn search_path(dir: &Path, search: &Search) {
+fn search_path(dir: &Path, search: &Search) -> Buffers {
     if let Ok(read) = std::fs::read_dir(dir) {
-        read.flatten().par_bridge().for_each(|entry| {
-            search_dir(entry, search);
-        })
+        return read
+            .flatten()
+            .par_bridge()
+            .fold(
+                || (Vec::new(), Vec::new()),
+                |mut v, entry| {
+                    let results = search_dir(entry, search);
+                    v.0.extend(results.0);
+                    v.1.extend(results.1);
+                    v
+                },
+            )
+            .reduce(
+                || (Vec::new(), Vec::new()),
+                |mut acc, v| {
+                    acc.0.extend(v.0);
+                    acc.1.extend(v.1);
+                    acc
+                },
+            );
     } else if search.verbose {
         eprintln!("Could not read {:?}", dir);
     }
+    (Vec::new(), Vec::new())
 }
 
-fn search_dir(entry: std::fs::DirEntry, search: &Search) {
+fn search_dir(entry: std::fs::DirEntry, search: &Search) -> Buffers {
     // Get entry name
     let fname = if search.case_sensitive {
         entry.file_name()
@@ -54,13 +87,20 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     };
     let fname = fname.to_string_lossy();
     let path = entry.path();
-    
+
     if search.explicit_ignore.binary_search(&path).is_ok() {
-        return;
+        return (Vec::new(), Vec::new());
     }
 
-    if !search.hidden && (is_hidden(&entry) || search.hardcoded_ignore.binary_search_by(|p| std::path::Path::new(p).cmp(&path)).is_ok()) {
-        return;
+    let hardcoded = || {
+        search
+            .hardcoded_ignore
+            .binary_search_by(|p| std::path::Path::new(p).cmp(&path))
+            .is_ok()
+    };
+
+    if !search.hidden && (is_hidden(&entry) || hardcoded()) {
+        return (Vec::new(), Vec::new());
     }
 
     // Read type of file and check if it should be added to search results
@@ -70,45 +110,57 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
         FileType::File => !is_dir,
         FileType::All => true,
     };
-
+    
     let starts = search.starts.is_empty() || fname.starts_with(&search.starts);
     let ends = search.ends.is_empty() || fname.ends_with(&search.ends);
+    let mut buffers = (Vec::new(), Vec::new());
+
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if fname == search.name {
-            print_var(
-                &mut search.buffers.0.lock(),
-                search.first,
-                path.clone(),
-                search.output,
-            );
+            print_var(&mut buffers.0, search.first, &path, search.output);
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && fname.contains(&search.name) {
-            print_var(
-                &mut search.buffers.1.lock(),
-                search.first,
-                path.clone(),
-                search.output,
-            );
+            print_var(&mut buffers.1, search.first, &path, search.output);
         }
     }
 
     // If entry is not a directory, stop function
     if !is_dir {
-        return;
+        return buffers;
     }
 
     if let Ok(read) = std::fs::read_dir(&path) {
-        read.flatten().par_bridge().for_each(|entry| {
-            search_dir(entry, search);
-        })
+        let b = read
+            .flatten()
+            .par_bridge()
+            .fold(
+                || (Buffer::new(), Buffer::new()),
+                |mut v, entry| {
+                    let results = search_dir(entry, search);
+                    v.0.extend(results.0);
+                    v.1.extend(results.1);
+                    v
+                },
+            )
+            .reduce(
+                || (Vec::new(), Vec::new()),
+                |mut acc, v| {
+                    acc.0.extend(v.0);
+                    acc.1.extend(v.1);
+                    acc
+                },
+            );
+        buffers.0.extend(b.0);
+        buffers.1.extend(b.1);
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
     }
+    buffers
 }
 
-fn print_var(var: &mut Buffer, first: bool, path: PathBuf, output: Output) {
+fn print_var(var: &mut Buffer, first: bool, path: &Path, output: Output) {
     if first {
         let found = FOUND.load(std::sync::atomic::Ordering::Acquire);
         if found {
@@ -121,7 +173,7 @@ fn print_var(var: &mut Buffer, first: bool, path: PathBuf, output: Output) {
     } else if output == Output::SuperSimple {
         println!("{}", path.display());
     } else {
-        var.push(path);
+        var.push(path.to_owned());
     }
 }
 
@@ -131,7 +183,7 @@ fn is_hidden(entry: &std::fs::DirEntry) -> bool {
     use std::os::windows::prelude::*;
     let metadata = entry.metadata().unwrap();
     let attributes = metadata.file_attributes();
-    
+
     attributes & 0x2 > 0
 }
 
