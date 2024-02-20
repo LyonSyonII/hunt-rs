@@ -3,6 +3,7 @@ on:
       tags:
         - '**[0-9]+.[0-9]+.[0-9]+*'
     pull_request:
+
 jobs:
     changelog:
       name: Generate changelog
@@ -28,4 +29,4 @@ jobs:
             set +e
             git add CHANGELOG.md
             git commit -m "Update changelog"
-            git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git <branch>
+            git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git ${{ github.head_ref || github.ref_name }} 
