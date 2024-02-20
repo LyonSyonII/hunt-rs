@@ -11,7 +11,7 @@ authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.0", features = ["derive", "color"] }
+clap = { version = "4.5.1", features = ["derive", "color"] }
 rayon = "1.8.1"
 parking_lot = "0.12.1"
 mimalloc = { version = "0.1.39", default-features = false }

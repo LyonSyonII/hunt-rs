@@ -135,11 +135,20 @@ impl From<Option<String>> for FileType {
     }
 }
 
+fn styles() -> clap::builder::Styles {
+    clap::builder::Styles::styled()
+    .header(clap::builder::styling::AnsiColor::Green.on_default() | clap::builder::styling::Effects::BOLD)
+    .usage(clap::builder::styling::AnsiColor::Green.on_default() | clap::builder::styling::Effects::BOLD)
+    .literal(clap::builder::styling::AnsiColor::Cyan.on_default() | clap::builder::styling::Effects::BOLD)
+    .placeholder(clap::builder::styling::AnsiColor::Cyan.on_default())
+}
+
 #[derive(clap::Parser, Debug)]
 #[command(
     name = "Hunt",
     about = "Simple command to search a file/folder by name on the current directory.\nBy default it searches all occurrences.",
-    version
+    version,
+    styles = styles()
 )]
 pub struct Cli {
     /// Stop when first occurrence is found
@@ -248,8 +257,7 @@ impl Cli {
         for p in ignore_dirs.iter_mut() {
             if !cli.canonicalize {
                 *p = std::path::Path::new("./").join(&p)
-            }
-            else if let Ok(c) = p.canonicalize() {
+            } else if let Ok(c) = p.canonicalize() {
                 *p = c;
             }
         }

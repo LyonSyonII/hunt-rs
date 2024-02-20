@@ -5,6 +5,9 @@ use std::io::Write;
 
 impl Search {
     pub fn print_results(self, buffers: Buffers) -> std::io::Result<()> {
+        if self.output == Output::SuperSimple {
+            return Ok(());
+        }
         print_results(self, buffers)
     }
 }
@@ -17,10 +20,8 @@ fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
         return Ok(());
     }
 
-    if search.output != Output::SuperSimple {
-        co.par_sort();
-        ex.par_sort();
-    }
+    co.par_sort();
+    ex.par_sort();
 
     // Print results
     let stdout = std::io::stdout().lock();
