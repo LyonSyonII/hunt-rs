@@ -1,53 +1,52 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::{path::{Path, PathBuf}, sync::atomic::{AtomicBool, AtomicUsize}};
+use std::path::Path;
 
-use crate::structs::{Buffer, FileType, Output, Search};
+use crate::structs::{Buffer, Buffers, FileType, Output, Search};
 
 static FOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 impl Search {
-    pub fn search(&self) {
+    pub fn search(&self) -> Buffers {
         // If no limit, search current directory
         if !self.limit {
-            search_path(&self.current_dir, self);
-        } else {
-            // Check if paths are valid and canonicalize if necessary
-            let dirs = self.dirs.iter().map(|path| {
-                if !path.exists() {
+            let path = if self.canonicalize {
+                std::env::current_dir().expect("Could not read current directory")
+            } else {
+                std::path::Path::new(".").to_owned()
+            };
+            return search_path(&path, self);
+        }
+        // Check if paths are valid and canonicalize if necessary
+        let dirs = self.dirs.iter().map(|path| {
+            if !path.exists() {
+                eprintln!("ERROR: The {:?} directory does not exist", path);
+                std::process::exit(1)
+            }
+
+            if self.canonicalize {
+                std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
                     eprintln!("ERROR: The {:?} directory does not exist", path);
                     std::process::exit(1)
-                }
-
-                if self.canonicalize {
-                    std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
-                        eprintln!("ERROR: The {:?} directory does not exist", path);
-                        std::process::exit(1)
-                    }))
-                } else {
-                    std::borrow::Cow::Borrowed(path)
-                }
-            });
-
-            // Search in directories
-            dirs.par_bridge().for_each(|dir| {
-                search_path(dir.as_ref(), self);
-                // search_path_queue(dir.as_ref(), self)
-            });
-        };
+                }))
+            } else {
+                std::borrow::Cow::Borrowed(path)
+            }
+        });
+        // Search in directories
+        par_fold(dirs, |dir| search_path(dir.as_ref(), self))
     }
 }
 
-fn search_path(dir: &Path, search: &Search) {
+fn search_path(dir: &Path, search: &Search) -> Buffers {
     if let Ok(read) = std::fs::read_dir(dir) {
-        read.flatten().par_bridge().for_each(|entry| {
-            search_dir(entry, search);
-        })
+        return par_fold(read.flatten(), |entry| search_dir(entry, search));
     } else if search.verbose {
         eprintln!("Could not read {:?}", dir);
     }
+    new_buffers()
 }
 
-fn search_dir(entry: std::fs::DirEntry, search: &Search) {
+fn search_dir(entry: std::fs::DirEntry, search: &Search) -> Buffers {
     // Get entry name
     let fname = if search.case_sensitive {
         entry.file_name()
@@ -57,12 +56,19 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
     let fname = fname.to_string_lossy();
     let path = entry.path();
 
-    if search.explicit_ignore.contains(&path) {
-        return;
+    if search.explicit_ignore.binary_search(&path).is_ok() {
+        return new_buffers();
     }
 
-    if !search.hidden && (is_hidden(&entry) || search.hardcoded_ignore.contains(path.as_path())) {
-        return;
+    let hardcoded = || {
+        search
+            .hardcoded_ignore
+            .binary_search_by(|p| std::path::Path::new(p).cmp(&path))
+            .is_ok()
+    };
+
+    if !search.hidden && (is_hidden(&entry) || hardcoded()) {
+        return new_buffers();
     }
 
     // Read type of file and check if it should be added to search results
@@ -75,43 +81,61 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) {
 
     let starts = search.starts.is_empty() || fname.starts_with(&search.starts);
     let ends = search.ends.is_empty() || fname.ends_with(&search.ends);
+    let mut buffers = new_buffers();
+
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if fname == search.name {
-            print_var(
-                &mut search.buffers.0.lock(),
-                search.first,
-                path.clone(),
-                search.output,
-            );
+            print_var(&mut buffers.0, search.first, &path, search.output);
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && fname.contains(&search.name) {
-            print_var(
-                &mut search.buffers.1.lock(),
-                search.first,
-                path.clone(),
-                search.output,
-            );
+            print_var(&mut buffers.1, search.first, &path, search.output);
         }
     }
 
     // If entry is not a directory, stop function
     if !is_dir {
-        return;
+        return buffers;
     }
 
     if let Ok(read) = std::fs::read_dir(&path) {
-        read.flatten().par_bridge().for_each(|entry| {
-            search_dir(entry, search);
-        })
+        let b = par_fold(read.flatten(), |entry| search_dir(entry, search));
+        buffers.0.extend(b.0);
+        buffers.1.extend(b.1);
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
     }
-    // recursion_level.fetch_sub(1, Ordering::AcqRel);
+    buffers
 }
 
-fn print_var(var: &mut Buffer, first: bool, path: PathBuf, output: Output) {
+fn new_buffers() -> Buffers {
+    (Buffer::new(), Buffer::new())
+}
+
+fn par_fold<I, F, T>(iter: I, map: F) -> Buffers
+where
+    I: IntoIterator<Item = T>,
+    <I as IntoIterator>::IntoIter: Send,
+    F: Fn(T) -> Buffers + Sync + Send,
+    T: Send,
+{
+    iter.into_iter()
+        .par_bridge()
+        .map(map)
+        .fold(new_buffers, |mut acc, results| {
+            acc.0.extend(results.0);
+            acc.1.extend(results.1);
+            acc
+        })
+        .reduce(new_buffers, |mut acc, v| {
+            acc.0.extend(v.0);
+            acc.1.extend(v.1);
+            acc
+        })
+}
+
+fn print_var(var: &mut Buffer, first: bool, path: &Path, output: Output) {
     if first {
         let found = FOUND.load(std::sync::atomic::Ordering::Acquire);
         if found {
@@ -124,7 +148,7 @@ fn print_var(var: &mut Buffer, first: bool, path: PathBuf, output: Output) {
     } else if output == Output::SuperSimple {
         println!("{}", path.display());
     } else {
-        var.push(path);
+        var.push(path.to_owned());
     }
 }
 
@@ -142,101 +166,3 @@ fn is_hidden(entry: &std::fs::DirEntry) -> bool {
 fn is_hidden(entry: &std::fs::DirEntry) -> bool {
     entry.file_name().to_string_lossy().starts_with('.')
 }
-
-/*
-TODO: Improve stack algorithm, currently it's much slower
-fn search_path_queue(path: &Path, search: &Search) {
-    static STACK: parking_lot::Mutex<Vec<std::fs::DirEntry>> = parking_lot::Mutex::new(Vec::new());
-    static ADDING: AtomicUsize = AtomicUsize::new(0);
-
-    STACK.lock().extend(match path.read_dir() {
-        Ok(ok) => ok.flatten(),
-        Err(err) => return eprintln!("Could not read {:?}: {err}", path),
-    });
-
-    ADDING.store(STACK.lock().len(), std::sync::atomic::Ordering::Release);
-    
-    rayon::scope(|s| {
-        while ADDING.load(std::sync::atomic::Ordering::Acquire) > 0 {
-            if let Some(entry) = STACK.lock().pop() {
-                s.spawn(move |_| {
-                    // Check if file is what we're searching.
-                    if check_file(&entry, search).is_err() { return }
-                    
-                    let path = entry.path();
-                    if path.is_dir() {
-                        let mut lock = STACK.lock();
-                        let len = lock.len();
-                        lock.extend(match path.read_dir() {
-                            Ok(ok) => ok.flatten(),
-                            Err(err) => {
-                                if search.verbose {
-                                    eprintln!("Could not read {:?}: {err}", path)
-                                }
-                                return
-                            },
-                        });
-                        ADDING.fetch_add(lock.len() - len, std::sync::atomic::Ordering::AcqRel);
-                    }
-                    ADDING.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
-                })
-            }
-        }
-    });
-}
-
-/// Checks file against search query.
-fn check_file(entry: &std::fs::DirEntry, search: &Search) -> Result<bool, ()> {
-    // Get entry name
-    let fname = if search.case_sensitive {
-        entry.file_name()
-    } else {
-        entry.file_name().to_ascii_lowercase()
-    };
-    let fname = fname.to_string_lossy();
-    let path = entry.path();
-
-    if search.explicit_ignore.contains(&path) {
-        return Err(());
-    }
-
-    if !search.hidden && (is_hidden(entry) || search.hardcoded_ignore.contains(path.as_path())) {
-        return Err(());
-    }
-
-    // Read type of file and check if it should be added to search results
-    let is_dir = matches!(entry.file_type(), Ok(ftype) if ftype.is_dir());
-    let ftype = match search.ftype {
-        FileType::Dir => is_dir,
-        FileType::File => !is_dir,
-        FileType::All => true,
-    };
-
-    let starts = search.starts.is_empty() || fname.starts_with(&search.starts);
-    let ends = search.ends.is_empty() || fname.ends_with(&search.ends);
-    if starts && ends && ftype {
-        // If file name is equal to search name, write it to the "Exact" buffer
-        if fname == search.name {
-            print_var(
-                &mut search.buffers.0.lock(),
-                search.first,
-                path,
-                search.output,
-            );
-        }
-        // If file name contains the search name, write it to the "Contains" buffer
-        else if !search.exact && fname.contains(&search.name) {
-            print_var(
-                &mut search.buffers.1.lock(),
-                search.first,
-                path,
-                search.output,
-            );
-        }
-
-        return Ok(true)
-    }
-
-    Ok(false)
-}
-*/

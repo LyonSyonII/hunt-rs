@@ -1,12 +1,9 @@
 use clap::Parser;
-use parking_lot::Mutex;
-use std::{
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
+
+use std::path::PathBuf;
 
 pub type Buffer = Vec<PathBuf>;
-pub type Buffers = (Mutex<Buffer>, Mutex<Buffer>);
+pub type Buffers = (Buffer, Buffer);
 pub struct Search {
     /// If the search must stop when a match is found.
     pub first: bool,
@@ -36,15 +33,12 @@ pub struct Search {
     pub ends: String,
     /// Type of the query. It can be a File, a Directory or All.
     pub ftype: FileType,
-    /// Directory the user is currently in, used by default to search into.
-    pub current_dir: PathBuf,
     /// Directories the user has stated to ignore.
-    pub explicit_ignore: HashSet<PathBuf>,
+    pub explicit_ignore: Vec<PathBuf>,
     /// Directories hard-coded to be ignored.
-    pub hardcoded_ignore: HashSet<&'static Path>,
+    pub hardcoded_ignore: [&'static str; 19],
     /// Directories specified by the user to be searched in.
     pub dirs: Vec<PathBuf>,
-    pub buffers: Buffers,
 }
 
 impl Search {
@@ -62,7 +56,7 @@ impl Search {
         starts: String,
         ends: String,
         ftype: FileType,
-        explicit_ignore: HashSet<PathBuf>,
+        explicit_ignore: Vec<PathBuf>,
         search_in_dirs: Vec<PathBuf>,
     ) -> Search {
         let output = match output {
@@ -84,38 +78,29 @@ impl Search {
             starts,
             ends,
             ftype,
-            current_dir: std::env::current_dir().expect("Current directory could not be read"),
             explicit_ignore,
-            hardcoded_ignore: HashSet::from_iter(
-                [
-                    "/proc",
-                    "/root",
-                    "/boot",
-                    "/dev",
-                    "/lib",
-                    "/lib64",
-                    "/lost+found",
-                    "/run",
-                    "/sbin",
-                    "/sys",
-                    "/tmp",
-                    "/var/tmp",
-                    "/var/lib",
-                    "/var/log",
-                    "/var/db",
-                    "/var/cache",
-                    "/etc/pacman.d",
-                    "/etc/sudoers.d",
-                    "/etc/audit",
-                ]
-                .iter()
-                .map(Path::new),
-            ),
+            hardcoded_ignore: sorted([
+                "/proc",
+                "/root",
+                "/boot",
+                "/dev",
+                "/lib",
+                "/lib64",
+                "/lost+found",
+                "/run",
+                "/sbin",
+                "/sys",
+                "/tmp",
+                "/var/tmp",
+                "/var/lib",
+                "/var/log",
+                "/var/db",
+                "/var/cache",
+                "/etc/pacman.d",
+                "/etc/sudoers.d",
+                "/etc/audit",
+            ]),
             dirs: search_in_dirs,
-            buffers: (
-                parking_lot::Mutex::new(Vec::new()),
-                parking_lot::Mutex::new(Vec::new()),
-            ),
         }
     }
 }
@@ -150,11 +135,29 @@ impl From<Option<String>> for FileType {
     }
 }
 
+fn styles() -> clap::builder::Styles {
+    clap::builder::Styles::styled()
+        .header(
+            clap::builder::styling::AnsiColor::Green.on_default()
+                | clap::builder::styling::Effects::BOLD,
+        )
+        .usage(
+            clap::builder::styling::AnsiColor::Green.on_default()
+                | clap::builder::styling::Effects::BOLD,
+        )
+        .literal(
+            clap::builder::styling::AnsiColor::Cyan.on_default()
+                | clap::builder::styling::Effects::BOLD,
+        )
+        .placeholder(clap::builder::styling::AnsiColor::Cyan.on_default())
+}
+
 #[derive(clap::Parser, Debug)]
 #[command(
     name = "Hunt",
     about = "Simple command to search a file/folder by name on the current directory.\nBy default it searches all occurrences.",
-    version
+    version,
+    styles = styles()
 )]
 pub struct Cli {
     /// Stop when first occurrence is found
@@ -213,8 +216,8 @@ pub struct Cli {
     /// Ignores this directories. The format is:
     ///
     /// -i dir1,dir2,dir3,...
-    #[arg(short = 'i', long = "ignore", value_parser = parse_ignore_dirs)]
-    ignore_dirs: Option<HashSet<PathBuf>>,
+    #[arg(short = 'i', long = "ignore", value_delimiter = ',')]
+    ignore_dirs: Option<Vec<PathBuf>>,
 
     /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
     name: Option<String>,
@@ -259,7 +262,14 @@ impl Cli {
             ends.make_ascii_lowercase();
         }
 
-        let ignore_dirs = cli.ignore_dirs.unwrap_or_default();
+        let mut ignore_dirs = cli.ignore_dirs.unwrap_or_default();
+        for p in ignore_dirs.iter_mut() {
+            if !cli.canonicalize {
+                *p = std::path::Path::new("./").join(&p)
+            } else if let Ok(c) = p.canonicalize() {
+                *p = c;
+            }
+        }
 
         Search::new(
             cli.first,
@@ -280,7 +290,82 @@ impl Cli {
     }
 }
 
-fn parse_ignore_dirs(inp: &str) -> Result<HashSet<PathBuf>, String> {
-    let inp = inp.trim().replace(',', " ");
-    Ok(HashSet::from_iter(inp.split(',').map(PathBuf::from)))
+const fn sorted<const N: usize>(mut array: [&'static str; N]) -> [&'static str; N] {
+    let mut i = 0;
+    while i < array.len() {
+        let mut j = 0;
+        while j < array.len() {
+            if lt(array[i], array[j]) {
+                let tmp = array[i];
+                array[i] = array[j];
+                array[j] = tmp;
+            }
+
+            j += 1;
+        }
+
+        i += 1;
+    }
+    array
+}
+
+const fn lt(lhs: &str, rhs: &str) -> bool {
+    let lhs = lhs.as_bytes();
+    let rhs = rhs.as_bytes();
+
+    let smallest = if lhs.len() < rhs.len() {
+        lhs.len()
+    } else {
+        rhs.len()
+    };
+
+    let mut i = 0;
+    while i < smallest {
+        let lhs = lhs[i];
+        let rhs = rhs[i];
+
+        if lhs < rhs {
+            return true;
+        }
+        if lhs > rhs {
+            return false;
+        }
+
+        i += 1;
+    }
+    lhs.len() == smallest
+}
+
+#[test]
+fn const_sorted() {
+    fn check<const N: usize>(mut array: [&'static str; N]) {
+        let sorted = sorted(array);
+        array.sort_unstable();
+        assert_eq!(sorted, array)
+    }
+
+    check(["b", "c", "a", "d"]);
+    check(["b", "c", "a", "d", "aa"]);
+    check([
+        "/proc",
+        "/root",
+        "/booty",
+        "/boot",
+        "/dev",
+        "/lib",
+        "/lib64",
+        "/lost+found",
+        "/run",
+        "/sbin",
+        "/sys",
+        "/tmp",
+        "/var/tmp",
+        "/var/lib",
+        "/var/log",
+        "/var/db",
+        "/var/cache",
+        "/etc/pacman.d",
+        "/etc/sudoers.d",
+        "/etc/audit",
+    ])
 }

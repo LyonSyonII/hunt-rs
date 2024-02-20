@@ -1,26 +1,27 @@
-use crate::structs::{Output, Search};
+use crate::structs::{Buffers, Output, Search};
 use colored::Colorize;
 use rayon::prelude::ParallelSliceMut;
 use std::io::Write;
 
 impl Search {
-    pub fn print_results(self) -> std::io::Result<()> {
-        print_results(self)
+    pub fn print_results(self, buffers: Buffers) -> std::io::Result<()> {
+        if self.output == Output::SuperSimple {
+            return Ok(());
+        }
+        print_results(self, buffers)
     }
 }
 
-fn print_results(search: Search) -> std::io::Result<()> {
-    let (mut ex, mut co) = (search.buffers.0.lock(), search.buffers.1.lock());
+fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
+    let (mut ex, mut co) = buffers;
 
     if ex.is_empty() && co.is_empty() && search.output == Output::Normal {
         println!("File not found");
         return Ok(());
     }
 
-    if search.output != Output::SuperSimple {
-        co.par_sort_unstable();
-        ex.par_sort_unstable();
-    }
+    co.par_sort();
+    ex.par_sort();
 
     // Print results
     let stdout = std::io::stdout().lock();
@@ -52,10 +53,10 @@ fn print_with_highlight(
 
     let ancestors = path.parent().unwrap();
     let fname = path.file_name().unwrap().to_string_lossy();
-    let sname: String = if search.case_sensitive {
-        fname.to_string()
+    let sname: std::borrow::Cow<'_, str> = if search.case_sensitive {
+        fname.as_ref().into()
     } else {
-        fname.to_ascii_lowercase()
+        fname.to_ascii_lowercase().into()
     };
 
     let get_start_end = |s: &str| {

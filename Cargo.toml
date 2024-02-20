@@ -6,19 +6,44 @@ repository = "https://github.com/LyonSyonII/hunt-rs"
 keywords = ["algorithms", "filesystem"]
 readme = "README.md"
 license = "MIT"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
 
+[package.metadata.wix]
+upgrade-guid = "93301563-2D91-4224-B838-C60D235011A0"
+path-guid = "35E701F2-8BE5-44F5-A8AB-3864E32599B9"
+license = false
+eula = false
+
 [dependencies]
-clap = { version = "4.3.0", features = ["derive", "color"] }
-rayon = "1.7.0"
+clap = { version = "4.5.1", features = ["derive", "color"] }
+rayon = "1.8.1"
 parking_lot = "0.12.1"
-mimalloc = { version = "0.1.37", default-features = false }
-colored = { version = "2.0.0" }
+mimalloc = { version = "0.1.39", default-features = false }
+colored = { version = "2.1.0" }
 
 [profile.release]
-lto = "fat"
+lto = true
 codegen-units = 1
-incremental = true
 strip = true
+debug = false
+panic = "abort"
+
+# The profile that 'cargo dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+# Config for 'cargo dist'
+[workspace.metadata.dist]
+# The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.10.0"
+# CI backends to support
+ci = ["github"]
+# The installers to generate for each app
+installers = ["shell", "powershell", "msi"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# Publish jobs to run in CI
+pr-run-mode = "plan"
