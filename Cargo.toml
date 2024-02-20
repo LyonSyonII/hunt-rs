@@ -10,6 +10,12 @@ version = "2.1.0"
 authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
 
+[package.metadata.wix]
+upgrade-guid = "93301563-2D91-4224-B838-C60D235011A0"
+path-guid = "35E701F2-8BE5-44F5-A8AB-3864E32599B9"
+license = false
+eula = false
+
 [dependencies]
 clap = { version = "4.5.1", features = ["derive", "color"] }
 rayon = "1.8.1"
@@ -37,7 +43,7 @@ cargo-dist-version = "0.10.0"
 # CI backends to support
 ci = ["github"]
 # The installers to generate for each app
-installers = []
+installers = ["shell", "powershell", "msi"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
 # Publish jobs to run in CI
