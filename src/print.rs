@@ -20,8 +20,8 @@ fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
         return Ok(());
     }
 
-    co.par_sort();
-    ex.par_sort();
+    co.par_sort_unstable();
+    ex.par_sort_unstable();
 
     // Print results
     let stdout = std::io::stdout().lock();
