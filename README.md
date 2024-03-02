@@ -1,5 +1,5 @@
 ![](assets/capture.png)
-[![Crates.io](https://img.shields.io/crates/v/hunt?color=orange)](https://crates.io/crates/hunt)
+[![Crates.io](https://img.shields.io/crates/v/hunt?color=orange)](https://crates.io/crates/hunt)  
 **A *highly-opinionated* simplified Find command made with Rust.**  
 By default it searches a file/folder in the working directory and divides the result between exact matches and ones that only contain the query.  
 Results will be sorted alphabetically.
