@@ -123,14 +123,14 @@ where
     iter.into_iter()
         .par_bridge()
         .map(map)
-        .fold(new_buffers, |mut acc, results| {
+/*         .fold(new_buffers, |mut acc, results| {
             acc.0.extend(results.0);
             acc.1.extend(results.1);
             acc
-        })
-        .reduce(new_buffers, |mut acc, v| {
-            acc.0.extend(v.0);
-            acc.1.extend(v.1);
+        }) */
+        .reduce(new_buffers, |mut acc, results| {
+            acc.0.extend(results.0);
+            acc.1.extend(results.1);
             acc
         })
 }
