@@ -137,15 +137,6 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
 
     if let Ok(read) = std::fs::read_dir(&path) {
         read.flatten().par_bridge().for_each(|entry| search_dir(entry, search, sender.clone()));
-/*         let b = par_fold(read.flatten(), |entry| search_dir(entry, search, &sender.clone()));
-        let (mut buffers, b) = if buffers.0.len() + buffers.1.len() > b.0.len() + b.1.len() {
-            (buffers, b)
-        } else {
-            (b, buffers)
-        };
-        buffers.0.extend(b.0);
-        buffers.1.extend(b.1);
-        return buffers; */
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
     }

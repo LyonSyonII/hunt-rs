@@ -1,45 +1,22 @@
-// https://github.com/lyonsyonii/run
-
-/// Prints help
-cmd default() {
-  echo "$doc"
+cmd 1() {
+   # Benchmark 1: Searching file in ~/
+   # File is in "/home/user/.wine/drive_c/users/user/AppData/Local/mygame/User Data/Crashpad/reports/SomeFile"
+   HUNT="hunt --hidden --first --exact SomeFile $HOME";
+   FD="fd --hidden --no-ignore --color=never --max-results=1 SomeFile $HOME";
+   FIND="find $HOME -name SomeFile -print -quit";
+   # LOCATE='locate -n 1 -A SomeFile'
+   hyperfine -N --warmup 2 --ignore-failure "$FIND"  \
+      "$FD" \
+      "$HUNT" \
 }
 
-const ALL = hyperfine -N --warmup 1 "hunt -s" "fd --color=never -I"
-const MANY = hyperfine -N --warmup 1 "hunt -s 463" "fd --color=never -I 463"
-
-/// Runs a benchmark in a filesystem with 1 Million files and max-depth of 5
-cmd 1M-breadth() {
-  cd 1M-breadth
-
-  echo ALL
-  $ALL
-  echo "## MANY ##"
-  $MANY
-}
-
-cmd 1M-depth() {
-  cd 1M-depth
-  
-  echo "## ALL ##"
-  $ALL
-  echo "## MANY ##"
-  $MANY
-}
-
-cmd clean() {
-  rm -rf 1M-breadth
-  rm -rf 1M-depth
-}
-
-/// Generate the benchmarks
-sub gen {
-  cmd 1M-breadth() {
-    rm -rf 1M-breadth
-    ftzz g ./1M-breadth -en 1M
-  }
-  cmd 1M-depth() {
-    rm -rf 1M-depth
-    ftzz g ./1M-depth -en 1M -d 20
-  }
+cmd 2() {
+   # Benchmark 2: Searching multiple files in ~/
+   HUNT="hunt --hidden --exact SomeFile $HOME";
+   FD="fd --hidden --no-ignore --color=never SomeFile $HOME";
+   FIND="find $HOME -name SomeFile -print -quit";
+   # LOCATE='locate -n 1 -A SomeFile'
+   hyperfine -N --warmup 2 --ignore-failure "$FIND"  \
+      "$FD" \
+      "$HUNT" \
 }
