@@ -2,7 +2,7 @@ use clap::Parser;
 
 use std::path::PathBuf;
 
-pub type Buffer = Vec<PathBuf>;
+pub type Buffer = Vec<String>;
 pub type Buffers = (Buffer, Buffer);
 pub struct Search {
     /// If the search must stop when a match is found.

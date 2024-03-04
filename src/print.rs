@@ -8,13 +8,38 @@ impl Search {
         if self.output == Output::SuperSimple {
             return Ok(());
         }
-        print_results(self, buffers)
+        let stdout = std::io::stdout();
+        let mut stdout = std::io::BufWriter::new(stdout.lock());
+        let (mut ex, mut co) = buffers;
+        if ex.is_empty() && co.is_empty() {
+            if self.output == Output::Normal {
+                writeln!(stdout, "File not found")?;
+            }
+            return Ok(());
+        }
+        crate::perf! {
+            ctx = "sort";
+            rayon::join(|| co.par_sort(), || ex.par_sort());
+        }
+        if self.output == Output::Normal {
+            writeln!(stdout, "Contains:")?;
+        }
+        for path in co.into_iter() {
+            writeln!(stdout, "{path}")?;
+        }
+        if self.output == Output::Normal {
+            writeln!(stdout, "\nExact:")?;
+        }
+        for path in ex.into_iter() {
+            writeln!(stdout, "{path}")?;
+        }
+        Ok(())
     }
 }
 
-fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
+/* fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
     let (mut ex, mut co) = buffers;
-
+    
     if ex.is_empty() && co.is_empty() && search.output == Output::Normal {
         println!("File not found");
         return Ok(());
@@ -24,14 +49,14 @@ fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
         ctx = "sort";
         rayon::join(|| co.par_sort(), || ex.par_sort());
     }
-
+    
     // Print results
     let stdout = std::io::stdout().lock();
     let mut stdout = std::io::BufWriter::new(stdout);
     
     crate::perf! {
         ctx = "print";
-
+        
         if search.output == Output::Normal {
             writeln!(stdout, "Contains:")?;
         }
@@ -46,31 +71,29 @@ fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
         }
     }
     Ok(())
-}
+} */
 
-fn print_with_highlight(
+pub fn print_with_highlight(
     stdout: &mut impl std::io::Write,
     path: &std::path::Path,
     search: &Search,
 ) -> std::io::Result<()> {
-    if search.output != Output::Normal {
-        return writeln!(stdout, "{}", path.display());
-    }
-    
-    
     crate::perf! {
         disable;
         ctx = "names highlight";
         
         crate::perf! {
+            disable;
             ctx = "ancestors";
             let ancestors = path.parent().unwrap();
         }
         crate::perf! {
+            disable;
             ctx = "fname";
             let fname = path.file_name().unwrap().to_string_lossy();
         }
         crate::perf! {
+            disable;
             ctx = "to_ascii";
             let sname: std::borrow::Cow<str> = if search.case_sensitive {
                 // fname.as_ref().into()
@@ -126,10 +149,19 @@ fn print_with_highlight(
         disable;
         ctx = "print highlight";
 
-        writeln!(
+        write!(
             stdout,
             "{ancestors}{sep}{starts}{starts_to_name}{name}{name_to_ends}{ends}{empty_ends}"
         )?;
     }
     Ok(())
+}
+
+pub fn format_with_highlight(
+    path: &std::path::Path,
+    search: &Search,
+) -> String {
+    let mut buffer = Vec::new();
+    print_with_highlight(&mut buffer, path, search).unwrap();
+    unsafe { String::from_utf8_unchecked(buffer) }
 }
