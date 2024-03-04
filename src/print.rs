@@ -1,5 +1,5 @@
 use crate::structs::{Buffers, Output, Search};
-use colored::Colorize;
+// use yansi::{Paint, Style};
 use rayon::prelude::ParallelSliceMut;
 use std::io::Write;
 
@@ -19,73 +19,127 @@ fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
         println!("File not found");
         return Ok(());
     }
-
-    co.par_sort_unstable();
-    ex.par_sort_unstable();
+    
+    crate::perf! {
+        ctx = "sort";
+        rayon::join(|| co.par_sort(), || ex.par_sort());
+    }
 
     // Print results
     let stdout = std::io::stdout().lock();
     let mut stdout = std::io::BufWriter::new(stdout);
+    
+    crate::perf! {
+        ctx = "print";
 
-    if search.output == Output::Normal {
-        writeln!(stdout, "Contains:")?;
-    }
-    for path in co.iter() {
-        print_with_highlight(&mut stdout, path, &search)?;
-    }
-    if search.output == Output::Normal {
-        writeln!(stdout, "\nExact:")?;
-    }
-    for path in ex.iter() {
-        writeln!(stdout, "{}", path.display())?;
+        if search.output == Output::Normal {
+            writeln!(stdout, "Contains:")?;
+        }
+        for path in co.iter() {
+            print_with_highlight(&mut stdout, path, &search)?;
+        }
+        if search.output == Output::Normal {
+            writeln!(stdout, "\nExact:")?;
+        }
+        for path in ex.iter() {
+            writeln!(stdout, "{}", path.display())?;
+        }
     }
     Ok(())
 }
 
 fn print_with_highlight(
-    stdout: &mut std::io::BufWriter<std::io::StdoutLock>,
+    stdout: &mut impl std::io::Write,
     path: &std::path::Path,
     search: &Search,
 ) -> std::io::Result<()> {
     if search.output != Output::Normal {
         return writeln!(stdout, "{}", path.display());
     }
+    
+    
+    crate::perf! {
+        disable;
+        ctx = "names highlight";
+        
+        crate::perf! {
+            ctx = "ancestors";
+            let ancestors = path.parent().unwrap();
+        }
+        crate::perf! {
+            ctx = "fname";
+            let fname = path.file_name().unwrap();
+        }
+        crate::perf! {
+            ctx = "to_ascii";
+            let sname: std::borrow::Cow<std::ffi::OsStr> = if search.case_sensitive {
+                // fname.as_ref().into()
+                fname.into()
+            } else {
+                fname.to_ascii_lowercase().into()
+            };
+        }
+    }
+    
+    crate::perf! {
+        disable;
+        ctx = "get highlight";
 
-    let ancestors = path.parent().unwrap();
-    let fname = path.file_name().unwrap().to_string_lossy();
-    let sname: std::borrow::Cow<'_, str> = if search.case_sensitive {
-        fname.as_ref().into()
-    } else {
-        fname.to_ascii_lowercase().into()
-    };
+        let get_start_end = |s: &str| {
+            use clap_lex::OsStrExt;
 
-    let get_start_end = |s: &str| {
-        let start = sname.find(s).unwrap();
-        (start, start + s.len())
-    };
+            let start = sname.find(s).unwrap();
+            (start, start + s.len())
+        };
+        
+        let starts_idx = if search.starts.is_empty() { 
+            (0, 0)
+        } else {
+            get_start_end(&search.starts)
+        };
+        let name_idx = if search.name.is_empty() {
+            (starts_idx.1, starts_idx.1)
+        } else {
+            get_start_end(&search.name)
+        };
+        let ends_idx = if search.ends.is_empty() {
+            (name_idx.1, name_idx.1)
+        } else {
+            get_start_end(&search.ends)
+        };
+    }
+    
+    crate::perf! {
+        disable;
+        ctx = "build highlight";
 
-    let starts_idx = get_start_end(&search.starts);
-    let name_idx = if search.name.is_empty() {
-        (starts_idx.1, starts_idx.1)
-    } else {
-        get_start_end(&search.name)
-    };
-    let ends_idx = if search.ends.is_empty() {
-        (name_idx.1, name_idx.1)
-    } else {
-        get_start_end(&search.ends)
-    };
+        use colored::Colorize;
 
-    let ancestors = ancestors.display();
-    let sep = std::path::MAIN_SEPARATOR;
-    let starts = &fname[starts_idx.0..starts_idx.1].bright_purple().bold();
-    let starts_to_name = &fname[starts_idx.1..name_idx.0];
-    let name = &fname[name_idx.0..name_idx.1].bright_red().bold();
-    let name_to_ends = &fname[name_idx.1..ends_idx.0];
-    let ends = &fname[ends_idx.0..ends_idx.1].bright_purple().bold();
-    let empty_ends = &fname[ends_idx.1..]; // Needed because we don't want to highlight the end of the path if "--ends" is not specified
-    writeln!(
-        stdout,
-        "{ancestors}{sep}{starts}{starts_to_name}{name}{name_to_ends}{ends}{empty_ends}"
-    )
+        let bytes = fname.as_encoded_bytes();
+        let get_str = |range| {
+            unsafe {
+                std::ffi::OsStr::from_encoded_bytes_unchecked(bytes[range])
+            }
+        };
+
+        let ancestors = ancestors.display();
+        let sep = std::path::MAIN_SEPARATOR;
+        let starts = get_str(starts_idx.0..starts_idx.1).bright_magenta().bold();
+        let starts = &std::ffi::OsStr::from_encoded_bytes_unchecked(bytes[starts_idx.0..starts_idx.1]).bright_magenta().bold();
+        let starts_to_name = &fname[starts_idx.1..name_idx.0];
+        let name = &fname[name_idx.0..name_idx.1].bright_red().bold();
+        let name_to_ends = &fname[name_idx.1..ends_idx.0];
+        let ends = &fname[ends_idx.0..ends_idx.1].bright_magenta().bold();
+        let empty_ends = &fname[ends_idx.1..]; // Needed because we don't want to highlight the end of the path if "--ends" is not specified
+    }
+    crate::perf! {
+        disable;
+        ctx = "print highlight";
+
+        writeln!(
+            stdout,
+            "{ancestors}{sep}{starts}{starts_to_name}{name}{name_to_ends}{ends}{empty_ends}"
+        )?;
+    }
+    Ok(())
 }
