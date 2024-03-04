@@ -1,5 +1,4 @@
 use crate::structs::{Buffers, Output, Search};
-// use yansi::{Paint, Style};
 use rayon::prelude::ParallelSliceMut;
 use std::io::Write;
 
@@ -45,7 +44,7 @@ pub fn print_with_highlight(
     search: &Search,
 ) -> std::io::Result<()> {
     let ancestors = path.parent().unwrap();
-    
+
     crate::perf! {
         disable;
         ctx = "get highlight";
@@ -54,8 +53,8 @@ pub fn print_with_highlight(
             let start = sname.find(s).unwrap();
             (start, start + s.len())
         };
-        
-        let starts_idx = if search.starts.is_empty() { 
+
+        let starts_idx = if search.starts.is_empty() {
             (0, 0)
         } else {
             get_start_end(&search.starts)
@@ -71,11 +70,11 @@ pub fn print_with_highlight(
             get_start_end(&search.ends)
         };
     }
-    
+
     crate::perf! {
         disable;
         ctx = "build highlight";
-        
+
         use colored::Colorize;
 
         let ancestors = ancestors.display();

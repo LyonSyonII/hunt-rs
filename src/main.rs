@@ -8,9 +8,9 @@ mod structs;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[cfg(feature = "debug")]
-pub(crate) struct Perf { 
+pub(crate) struct Perf {
     time: std::time::Duration,
-    ctx: &'static str
+    ctx: &'static str,
 }
 
 #[cfg(feature = "debug")]
@@ -29,7 +29,7 @@ macro_rules! perf {
         #[cfg(feature = "debug")]
         let _end = std::time::Instant::now();
         #[cfg(feature = "debug")]
-        $crate::Perf { 
+        $crate::Perf {
             time: _end - _start,
             ctx: $ctx
         };
@@ -45,10 +45,10 @@ macro_rules! perf {
 fn main() -> std::io::Result<()> {
     let search = structs::Cli::run();
     std::env::set_var("RUST_MIN_STACK", format!("{}", 1024 * 1024 * 1024));
-    
+
     perf! {
-        ctx = "search"; 
-        let buffers = search.search(); 
+        ctx = "search";
+        let buffers = search.search();
     }
     search.print_results(buffers)?;
     Ok(())

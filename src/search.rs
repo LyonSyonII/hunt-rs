@@ -1,8 +1,6 @@
-use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
-use std::path::{Path, PathBuf};
 use crate::structs::{Buffer, Buffers, FileType, Output, Search};
-
-static FOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+use rayon::iter::{ParallelBridge, ParallelIterator};
+use std::path::Path;
 
 type Receiver = std::sync::mpsc::Receiver<String>;
 type Sender = std::sync::mpsc::Sender<String>;
@@ -40,10 +38,14 @@ impl Search {
         // Search in directories
         // par_fold(dirs, |dir| search_path(dir.as_ref(), self, sender.clone()));
         let received = rayon::scope(move |s| {
-            s.spawn(move |_| dirs.into_iter().par_bridge().for_each(|dir| search_path(dir.as_ref(), self, sender.clone())));
+            s.spawn(move |_| {
+                dirs.into_iter()
+                    .par_bridge()
+                    .for_each(|dir| search_path(dir.as_ref(), self, sender.clone()))
+            });
             receive_paths(receiver, self)
         });
-        
+
         (Vec::new(), received)
     }
 }
@@ -52,14 +54,13 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffer {
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
     let mut received = Vec::new();
-    
+
     while let Ok(path) = receiver.recv() {
         use std::io::Write;
         if search.first {
             println!("{path}");
             std::process::exit(0)
-        }
-         else if search.output == Output::SuperSimple {
+        } else if search.output == Output::SuperSimple {
             writeln!(stdout, "{path}").unwrap();
         } else {
             received.push(path);
@@ -70,7 +71,9 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffer {
 
 fn search_path(dir: &Path, search: &Search, sender: Sender) {
     if let Ok(read) = std::fs::read_dir(dir) {
-        read.flatten().par_bridge().for_each(|entry| search_dir(entry, search, sender.clone()));
+        read.flatten()
+            .par_bridge()
+            .for_each(|entry| search_dir(entry, search, sender.clone()));
         // return par_fold(read.flatten(), |entry| search_dir(entry, search, sender.clone()));
     } else if search.verbose {
         eprintln!("Could not read {:?}", dir);
@@ -113,7 +116,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
 
     let starts = search.starts.is_empty() || sname.starts_with(&search.starts);
     let ends = search.ends.is_empty() || sname.ends_with(&search.ends);
-    
+
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if sname == search.name {
@@ -129,30 +132,86 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
             sender.send(s).unwrap();
         }
     }
-    
+
     // If entry is not a directory, stop function
     if !is_dir {
         return;
     }
 
     if let Ok(read) = std::fs::read_dir(&path) {
-        read.flatten().par_bridge().for_each(|entry| search_dir(entry, search, sender.clone()));
+        read.flatten()
+            .par_bridge()
+            .for_each(|entry| search_dir(entry, search, sender.clone()));
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
     }
 }
 
-// OS-variable functions
-#[cfg(windows)]
-fn is_hidden(entry: &std::fs::DirEntry) -> bool {
-    use std::os::windows::prelude::*;
-    let metadata = entry.metadata().unwrap();
-    let attributes = metadata.file_attributes();
+// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
 
-    attributes & 0x2 > 0
+/// Returns true if and only if this entry is considered to be hidden.
+///
+/// This only returns true if the base name of the path starts with a `.`.
+///
+/// On Unix, this implements a more optimized check.
+#[cfg(unix)]
+pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+
+    file_name(&entry.path()).is_some_and(|name| name.as_bytes().first() == Some(&b'.'))
 }
 
+/// Returns true if and only if this entry is considered to be hidden.
+///
+/// On Windows, this returns true if one of the following is true:
+///
+/// * The base name of the path starts with a `.`.
+/// * The file attributes have the `HIDDEN` property set.
+#[cfg(windows)]
+pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    use winapi_util::file;
+
+    // This looks like we're doing an extra stat call, but on Windows, the
+    // directory traverser reuses the metadata retrieved from each directory
+    // entry and stores it on the DirEntry itself. So this is "free."
+    if let Ok(md) = entry.metadata() {
+        if file::is_hidden(md.file_attributes() as u64) {
+            return true;
+        }
+    }
+    if let Some(name) = file_name(entry.path()) {
+        name.to_str().map(|s| s.starts_with(".")).unwrap_or(false)
+    } else {
+        false
+    }
+}
+
+/// The final component of the path, if it is a normal file.
+///
+/// If the path terminates in ., .., or consists solely of a root of prefix,
+/// file_name will return None.
 #[cfg(unix)]
-fn is_hidden(entry: &std::fs::DirEntry) -> bool {
-    entry.file_name().to_string_lossy().starts_with('.')
+pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&std::ffi::OsStr> {
+    use std::os::unix::ffi::OsStrExt;
+
+    let path = path.as_ref().as_os_str().as_bytes();
+    if path.is_empty()
+        || path.len() == 1 && path[0] == b'.'
+        || path.last() == Some(&b'.')
+        || path.len() >= 2 && path[path.len() - 2..] == b".."[..]
+    {
+        return None;
+    }
+    let last_slash = memchr::memrchr(b'/', path).map(|i| i + 1).unwrap_or(0);
+    Some(std::ffi::OsStr::from_bytes(&path[last_slash..]))
+}
+
+/// The final component of the path, if it is a normal file.
+///
+/// If the path terminates in ., .., or consists solely of a root of prefix,
+/// file_name will return None.
+#[cfg(not(unix))]
+pub(crate) fn file_name<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> Option<&'a OsStr> {
+    path.as_ref().file_name()
 }

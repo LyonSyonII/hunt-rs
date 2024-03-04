@@ -21,9 +21,8 @@ clap = { version = "4.5.1", features = ["derive", "color"] }
 rayon = "1.9.0"
 parking_lot = "0.12.1"
 mimalloc = { version = "0.1.39", default-features = false }
-yansi = { version = "1.0.0-rc.1", features = ["detect-tty", "detect-env"] }     # Colorize output (no alloc)
 colored = "2.1.0"
-clap_lex = "0.7.0"
+memchr = "2.7.1"
 
 [profile.release]
 lto = true
