@@ -1,6 +1,5 @@
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::path::Path;
-
 use crate::structs::{Buffer, Buffers, FileType, Output, Search};
 
 static FOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -82,18 +81,18 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) -> Buffers {
     let starts = search.starts.is_empty() || fname.starts_with(&search.starts);
     let ends = search.ends.is_empty() || fname.ends_with(&search.ends);
     let mut buffers = new_buffers();
-
+    
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if fname == search.name {
-            print_var(&mut buffers.0, search.first, &path, search.output);
+            print_var(&mut buffers.0, search.first, path.clone(), search.output);
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && fname.contains(&search.name) {
-            print_var(&mut buffers.1, search.first, &path, search.output);
+            print_var(&mut buffers.1, search.first, path.clone(), search.output);
         }
     }
-
+    
     // If entry is not a directory, stop function
     if !is_dir {
         return buffers;
@@ -101,11 +100,18 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search) -> Buffers {
 
     if let Ok(read) = std::fs::read_dir(&path) {
         let b = par_fold(read.flatten(), |entry| search_dir(entry, search));
+        let (mut buffers, b) = if buffers.0.len() + buffers.1.len() > b.0.len() + b.1.len() {
+            (buffers, b)
+        } else {
+            (b, buffers)
+        };
         buffers.0.extend(b.0);
         buffers.1.extend(b.1);
+        return buffers;
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
     }
+
     buffers
 }
 
@@ -120,22 +126,18 @@ where
     F: Fn(T) -> Buffers + Sync + Send,
     T: Send,
 {
+    use rayon::prelude::*;
     iter.into_iter()
         .par_bridge()
         .map(map)
-        .fold(new_buffers, |mut acc, results| {
+        .reduce_with(|mut acc, results| {
             acc.0.extend(results.0);
             acc.1.extend(results.1);
             acc
-        })
-        .reduce(new_buffers, |mut acc, v| {
-            acc.0.extend(v.0);
-            acc.1.extend(v.1);
-            acc
-        })
+        }).unwrap_or_default()
 }
 
-fn print_var(var: &mut Buffer, first: bool, path: &Path, output: Output) {
+fn print_var(var: &mut Buffer, first: bool, path: std::path::PathBuf, output: Output) {
     if first {
         let found = FOUND.load(std::sync::atomic::Ordering::Acquire);
         if found {
@@ -148,7 +150,7 @@ fn print_var(var: &mut Buffer, first: bool, path: &Path, output: Output) {
     } else if output == Output::SuperSimple {
         println!("{}", path.display());
     } else {
-        var.push(path.to_owned());
+        var.push(path);
     }
 }
 
