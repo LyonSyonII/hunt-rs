@@ -37,72 +37,14 @@ impl Search {
     }
 }
 
-/* fn print_results(search: Search, buffers: Buffers) -> std::io::Result<()> {
-    let (mut ex, mut co) = buffers;
-    
-    if ex.is_empty() && co.is_empty() && search.output == Output::Normal {
-        println!("File not found");
-        return Ok(());
-    }
-    
-    crate::perf! {
-        ctx = "sort";
-        rayon::join(|| co.par_sort(), || ex.par_sort());
-    }
-    
-    // Print results
-    let stdout = std::io::stdout().lock();
-    let mut stdout = std::io::BufWriter::new(stdout);
-    
-    crate::perf! {
-        ctx = "print";
-        
-        if search.output == Output::Normal {
-            writeln!(stdout, "Contains:")?;
-        }
-        for path in co.iter() {
-            print_with_highlight(&mut stdout, path, &search)?;
-        }
-        if search.output == Output::Normal {
-            writeln!(stdout, "\nExact:")?;
-        }
-        for path in ex.iter() {
-            writeln!(stdout, "{}", path.display())?;
-        }
-    }
-    Ok(())
-} */
-
 pub fn print_with_highlight(
     stdout: &mut impl std::io::Write,
+    fname: &str,
+    sname: &str,
     path: &std::path::Path,
     search: &Search,
 ) -> std::io::Result<()> {
-    crate::perf! {
-        disable;
-        ctx = "names highlight";
-        
-        crate::perf! {
-            disable;
-            ctx = "ancestors";
-            let ancestors = path.parent().unwrap();
-        }
-        crate::perf! {
-            disable;
-            ctx = "fname";
-            let fname = path.file_name().unwrap().to_string_lossy();
-        }
-        crate::perf! {
-            disable;
-            ctx = "to_ascii";
-            let sname: std::borrow::Cow<str> = if search.case_sensitive {
-                // fname.as_ref().into()
-                fname.as_ref().into()
-            } else {
-                fname.to_ascii_lowercase().into()
-            };
-        }
-    }
+    let ancestors = path.parent().unwrap();
     
     crate::perf! {
         disable;
@@ -158,10 +100,12 @@ pub fn print_with_highlight(
 }
 
 pub fn format_with_highlight(
+    fname: &str,
+    sname: &str,
     path: &std::path::Path,
     search: &Search,
 ) -> String {
     let mut buffer = Vec::new();
-    print_with_highlight(&mut buffer, path, search).unwrap();
+    print_with_highlight(&mut buffer, fname, sname, path, search).unwrap();
     unsafe { String::from_utf8_unchecked(buffer) }
 }

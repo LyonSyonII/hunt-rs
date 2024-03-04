@@ -1,8 +1,11 @@
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 use std::path::{Path, PathBuf};
 use crate::structs::{Buffer, Buffers, FileType, Output, Search};
 
 static FOUND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+type Receiver = std::sync::mpsc::Receiver<String>;
+type Sender = std::sync::mpsc::Sender<String>;
 
 impl Search {
     pub fn search(&self) -> Buffers {
@@ -45,26 +48,27 @@ impl Search {
     }
 }
 
-fn receive_paths(receiver: std::sync::mpsc::Receiver<PathBuf>, search: &Search) -> Buffer {
+fn receive_paths(receiver: Receiver, search: &Search) -> Buffer {
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
     let mut received = Vec::new();
+    
     while let Ok(path) = receiver.recv() {
         use std::io::Write;
         if search.first {
-            writeln!(stdout, "{}", path.display()).unwrap();
+            println!("{path}");
             std::process::exit(0)
         }
          else if search.output == Output::SuperSimple {
-            writeln!(stdout, "{}", path.display()).unwrap();
+            writeln!(stdout, "{path}").unwrap();
         } else {
-            received.push(crate::print::format_with_highlight(&path, search));
+            received.push(path);
         }
     }
     received
 }
 
-fn search_path(dir: &Path, search: &Search, sender: std::sync::mpsc::Sender<std::path::PathBuf>) {
+fn search_path(dir: &Path, search: &Search, sender: Sender) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.flatten().par_bridge().for_each(|entry| search_dir(entry, search, sender.clone()));
         // return par_fold(read.flatten(), |entry| search_dir(entry, search, sender.clone()));
@@ -73,14 +77,15 @@ fn search_path(dir: &Path, search: &Search, sender: std::sync::mpsc::Sender<std:
     }
 }
 
-fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: std::sync::mpsc::Sender<std::path::PathBuf>) {
+fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
     // Get entry name
-    let fname = if search.case_sensitive {
-        entry.file_name()
-    } else {
-        entry.file_name().to_ascii_lowercase()
-    };
+    let fname = entry.file_name();
     let fname = fname.to_string_lossy();
+    let sname: std::borrow::Cow<str> = if search.case_sensitive {
+        fname.as_ref().into()
+    } else {
+        fname.to_ascii_lowercase().into()
+    };
     let path = entry.path();
 
     if search.explicit_ignore.binary_search(&path).is_ok() {
@@ -106,20 +111,22 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: std::sync::mpsc
         FileType::All => true,
     };
 
-    let starts = search.starts.is_empty() || fname.starts_with(&search.starts);
-    let ends = search.ends.is_empty() || fname.ends_with(&search.ends);
+    let starts = search.starts.is_empty() || sname.starts_with(&search.starts);
+    let ends = search.ends.is_empty() || sname.ends_with(&search.ends);
     
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
-        if fname == search.name {
+        if sname == search.name {
             // TODO: Exact
-            sender.send(path.clone()).unwrap();
+            let s = crate::print::format_with_highlight(&fname, &sname, &path, search);
+            sender.send(s).unwrap();
             // print_var(&sender, search.first, path.clone(), search.output);
         }
         // If file name contains the search name, write it to the "Contains" buffer
-        else if !search.exact && fname.contains(&search.name) {
+        else if !search.exact && sname.contains(&search.name) {
             // TODO: Contains
-            sender.send(path.clone()).unwrap();
+            let s = crate::print::format_with_highlight(&fname, &sname, &path, search);
+            sender.send(s).unwrap();
         }
     }
     
