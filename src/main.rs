@@ -7,13 +7,13 @@ mod structs;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-#[cfg(feature = "debug")]
+#[cfg(feature = "perf")]
 pub(crate) struct Perf {
     time: std::time::Duration,
     ctx: &'static str,
 }
 
-#[cfg(feature = "debug")]
+#[cfg(feature = "perf")]
 impl Drop for Perf {
     fn drop(&mut self) {
         eprintln!("{}: {:?}", self.ctx, self.time);
@@ -23,12 +23,12 @@ impl Drop for Perf {
 #[macro_export]
 macro_rules! perf {
     (ctx = $ctx:expr; $($code:tt)* ) => {
-        #[cfg(feature = "debug")]
+        #[cfg(feature = "perf")]
         let _start = std::time::Instant::now();
         $($code)*
-        #[cfg(feature = "debug")]
+        #[cfg(feature = "perf")]
         let _end = std::time::Instant::now();
-        #[cfg(feature = "debug")]
+        #[cfg(feature = "perf")]
         $crate::Perf {
             time: _end - _start,
             ctx: $ctx

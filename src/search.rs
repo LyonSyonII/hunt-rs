@@ -1,14 +1,14 @@
-use crate::structs::{Buffer, Buffers, FileType, Output, Search};
+use crate::structs::{Buffers, FileType, Output, Search};
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-type Receiver = std::sync::mpsc::Receiver<String>;
-type Sender = std::sync::mpsc::Sender<String>;
+type Receiver = crossbeam_channel::Receiver<SearchResult>;
+type Sender = crossbeam_channel::Sender<SearchResult>;
 
 impl Search {
     pub fn search(&self) -> Buffers {
-        let (sender, receiver) = std::sync::mpsc::channel();
-
+        let (sender, receiver) = crossbeam_channel::bounded(8);
+        
         // If no limit, search current directory
         if !self.limit {
             let path = if self.canonicalize {
@@ -36,7 +36,6 @@ impl Search {
         });
 
         // Search in directories
-        // par_fold(dirs, |dir| search_path(dir.as_ref(), self, sender.clone()));
         let received = rayon::scope(move |s| {
             s.spawn(move |_| {
                 dirs.into_iter()
@@ -45,28 +44,54 @@ impl Search {
             });
             receive_paths(receiver, self)
         });
+        
+        received
+    }
+}
+enum SearchResult {
+    Exact(PathBuf),
+    Contains(String),
+}
 
-        (Vec::new(), received)
+impl std::fmt::Display for SearchResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            SearchResult::Exact(p) => write!(f, "{}", p.display()),
+            SearchResult::Contains(s) => write!(f, "{}", s),
+        }
     }
 }
 
-fn receive_paths(receiver: Receiver, search: &Search) -> Buffer {
+fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
-    let mut received = Vec::new();
+    
+    crate::perf! {
+        ctx = "alloc vecs";
+
+        let mut exact = Vec::with_capacity(8);
+        let mut contains = Vec::with_capacity(8);
+    }
 
     while let Ok(path) = receiver.recv() {
-        use std::io::Write;
-        if search.first {
-            println!("{path}");
-            std::process::exit(0)
-        } else if search.output == Output::SuperSimple {
-            writeln!(stdout, "{path}").unwrap();
-        } else {
-            received.push(path);
+        crate::perf! {
+            ctx = "receive";
+
+            use std::io::Write;
+            if search.first {
+                println!("{path}");
+                std::process::exit(0)
+            } else if search.output == Output::SuperSimple {
+                writeln!(stdout, "{path}").unwrap();
+            } else {
+                match path {
+                    SearchResult::Exact(e) => exact.push(e),
+                    SearchResult::Contains(c) => contains.push(c),
+                }
+            }
         }
     }
-    received
+    (exact, contains)
 }
 
 fn search_path(dir: &Path, search: &Search, sender: Sender) {
@@ -120,16 +145,12 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if sname == search.name {
-            // TODO: Exact
-            let s = crate::print::format_with_highlight(&fname, &sname, &path, search);
-            sender.send(s).unwrap();
-            // print_var(&sender, search.first, path.clone(), search.output);
+            crate::perf! { ctx = "send_ex"; sender.send(SearchResult::Exact(path.clone())).unwrap(); }
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && sname.contains(&search.name) {
-            // TODO: Contains
             let s = crate::print::format_with_highlight(&fname, &sname, &path, search);
-            sender.send(s).unwrap();
+            crate::perf! { ctx = "send"; sender.send(SearchResult::Contains(s)).unwrap(); }
         }
     }
 

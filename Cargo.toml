@@ -23,6 +23,7 @@ parking_lot = "0.12.1"
 mimalloc = { version = "0.1.39", default-features = false }
 colored = "2.1.0"
 memchr = "2.7.1"
+crossbeam-channel = "0.5.12"
 
 [profile.release]
 lto = true
@@ -37,7 +38,7 @@ inherits = "release"
 lto = "thin"
 
 [features]
-debug = []
+perf = [] # Enable performance measurements
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]
