@@ -73,20 +73,16 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     let mut contains = Vec::with_capacity(8);
 
     while let Ok(path) = receiver.recv() {
-        crate::perf! {
-            ctx = "receive";
-
-            use std::io::Write;
-            if search.first {
-                println!("{path}");
-                std::process::exit(0)
-            } else if search.output == Output::SuperSimple {
-                writeln!(stdout, "{path}").unwrap();
-            } else {
-                match path {
-                    SearchResult::Exact(e) => exact.push(e),
-                    SearchResult::Contains(c) => contains.push(c),
-                }
+        use std::io::Write;
+        if search.first {
+            println!("{path}");
+            std::process::exit(0)
+        } else if search.output == Output::SuperSimple {
+            writeln!(stdout, "{path}").unwrap();
+        } else {
+            match path {
+                SearchResult::Exact(e) => exact.push(e),
+                SearchResult::Contains(c) => contains.push(c),
             }
         }
     }
