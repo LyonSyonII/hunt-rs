@@ -7,8 +7,10 @@ impl Search {
         if self.output == Output::SuperSimple {
             return Ok(());
         }
+
         let stdout = std::io::stdout();
         let mut stdout = std::io::BufWriter::new(stdout.lock());
+
         let (mut ex, mut co) = buffers;
         if ex.is_empty() && co.is_empty() {
             if self.output == Output::Normal {
@@ -20,17 +22,20 @@ impl Search {
             ctx = "sort";
             rayon::join(|| co.par_sort(), || ex.par_sort());
         }
-        if self.output == Output::Normal {
-            writeln!(stdout, "Contains:")?;
-        }
-        for path in co.into_iter() {
-            writeln!(stdout, "{path}")?;
-        }
-        if self.output == Output::Normal {
-            writeln!(stdout, "\nExact:")?;
-        }
-        for path in ex.into_iter() {
-            writeln!(stdout, "{}", path.display())?;
+        crate::perf! {
+            ctx = "print";
+            if self.output == Output::Normal {
+                writeln!(stdout, "Contains:")?;
+            }
+            for path in co.into_iter() {
+                writeln!(stdout, "{path}")?;
+            }
+            if self.output == Output::Normal {
+                writeln!(stdout, "\nExact:")?;
+            }
+            for path in ex.into_iter() {
+                writeln!(stdout, "{}", path.display())?;
+            }
         }
         Ok(())
     }

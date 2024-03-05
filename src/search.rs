@@ -16,18 +16,21 @@ impl Search {
             } else {
                 std::path::Path::new(".").to_owned()
             };
-            search_path(&path, self, sender.clone());
+            return rayon::scope(|s| {
+                s.spawn(|_| search_path(&path, self, sender));
+                receive_paths(receiver, self)
+            });
         }
         // Check if paths are valid and canonicalize if necessary
         let dirs = self.dirs.iter().map(|path| {
             if !path.exists() {
-                eprintln!("ERROR: The {:?} directory does not exist", path);
+                eprintln!("Error: The {:?} directory does not exist", path);
                 std::process::exit(1)
             }
 
             if self.canonicalize {
                 std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
-                    eprintln!("ERROR: The {:?} directory does not exist", path);
+                    eprintln!("Error: The {:?} directory does not exist", path);
                     std::process::exit(1)
                 }))
             } else {
@@ -57,7 +60,7 @@ impl std::fmt::Display for SearchResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             SearchResult::Exact(p) => write!(f, "{}", p.display()),
-            SearchResult::Contains(s) => write!(f, "{}", s),
+            SearchResult::Contains(s) => f.write_str(s),
         }
     }
 }
@@ -66,12 +69,8 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
     
-    crate::perf! {
-        ctx = "alloc vecs";
-
-        let mut exact = Vec::with_capacity(8);
-        let mut contains = Vec::with_capacity(8);
-    }
+    let mut exact = Vec::with_capacity(8);
+    let mut contains = Vec::with_capacity(8);
 
     while let Ok(path) = receiver.recv() {
         crate::perf! {
@@ -99,7 +98,6 @@ fn search_path(dir: &Path, search: &Search, sender: Sender) {
         read.flatten()
             .par_bridge()
             .for_each(|entry| search_dir(entry, search, sender.clone()));
-        // return par_fold(read.flatten(), |entry| search_dir(entry, search, sender.clone()));
     } else if search.verbose {
         eprintln!("Could not read {:?}", dir);
     }
@@ -145,12 +143,12 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if sname == search.name {
-            crate::perf! { ctx = "send_ex"; sender.send(SearchResult::Exact(path.clone())).unwrap(); }
+            sender.send(SearchResult::Exact(path.clone())).unwrap();
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && sname.contains(&search.name) {
             let s = crate::print::format_with_highlight(&fname, &sname, &path, search);
-            crate::perf! { ctx = "send"; sender.send(SearchResult::Contains(s)).unwrap(); }
+            sender.send(SearchResult::Contains(s)).unwrap();
         }
     }
 
