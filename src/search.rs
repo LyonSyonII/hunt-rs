@@ -8,7 +8,7 @@ type Sender = crossbeam_channel::Sender<SearchResult>;
 impl Search {
     pub fn search(&self) -> Buffers {
         let (sender, receiver) = crossbeam_channel::bounded(8);
-        
+
         // If no limit, search current directory
         if !self.limit {
             let path = if self.canonicalize {
@@ -47,7 +47,7 @@ impl Search {
             });
             receive_paths(receiver, self)
         });
-        
+
         received
     }
 }
@@ -68,7 +68,7 @@ impl std::fmt::Display for SearchResult {
 fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
-    
+
     let mut exact = Vec::with_capacity(8);
     let mut contains = Vec::with_capacity(8);
 

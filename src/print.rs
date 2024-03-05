@@ -50,57 +50,45 @@ pub fn print_with_highlight(
 ) -> std::io::Result<()> {
     let ancestors = path.parent().unwrap();
 
-    crate::perf! {
-        disable;
-        ctx = "get highlight";
+    let get_start_end = |s: &str| {
+        let start = sname.find(s).unwrap();
+        (start, start + s.len())
+    };
 
-        let get_start_end = |s: &str| {
-            let start = sname.find(s).unwrap();
-            (start, start + s.len())
-        };
+    let starts_idx = if search.starts.is_empty() {
+        (0, 0)
+    } else {
+        get_start_end(&search.starts)
+    };
+    let name_idx = if search.name.is_empty() {
+        (starts_idx.1, starts_idx.1)
+    } else {
+        get_start_end(&search.name)
+    };
+    let ends_idx = if search.ends.is_empty() {
+        (name_idx.1, name_idx.1)
+    } else {
+        get_start_end(&search.ends)
+    };
+    
+    use colored::Colorize;
 
-        let starts_idx = if search.starts.is_empty() {
-            (0, 0)
-        } else {
-            get_start_end(&search.starts)
-        };
-        let name_idx = if search.name.is_empty() {
-            (starts_idx.1, starts_idx.1)
-        } else {
-            get_start_end(&search.name)
-        };
-        let ends_idx = if search.ends.is_empty() {
-            (name_idx.1, name_idx.1)
-        } else {
-            get_start_end(&search.ends)
-        };
+    // let ancestors = ancestors.display();
+    let sep = std::path::MAIN_SEPARATOR;
+    let starts = &fname[starts_idx.0..starts_idx.1].bright_magenta().bold();
+    let starts_to_name = &fname[starts_idx.1..name_idx.0];
+    let name = &fname[name_idx.0..name_idx.1].bright_red().bold();
+    let name_to_ends = &fname[name_idx.1..ends_idx.0];
+    let ends = &fname[ends_idx.0..ends_idx.1].bright_magenta().bold();
+    let empty_ends = &fname[ends_idx.1..]; // Needed because we don't want to highlight the end of the path if "--ends" is not specified
+    
+    if ancestors.as_os_str().len() > 1 || !ancestors.starts_with("/") {
+        write!(stdout, "{}", ancestors.display())?;
     }
-
-    crate::perf! {
-        disable;
-        ctx = "build highlight";
-
-        use colored::Colorize;
-
-        let ancestors = ancestors.display();
-        let sep = std::path::MAIN_SEPARATOR;
-        let starts = &fname[starts_idx.0..starts_idx.1].bright_magenta().bold();
-        let starts_to_name = &fname[starts_idx.1..name_idx.0];
-        let name = &fname[name_idx.0..name_idx.1].bright_red().bold();
-        let name_to_ends = &fname[name_idx.1..ends_idx.0];
-        let ends = &fname[ends_idx.0..ends_idx.1].bright_magenta().bold();
-        let empty_ends = &fname[ends_idx.1..]; // Needed because we don't want to highlight the end of the path if "--ends" is not specified
-    }
-    crate::perf! {
-        disable;
-        ctx = "print highlight";
-
-        write!(
-            stdout,
-            "{ancestors}{sep}{starts}{starts_to_name}{name}{name_to_ends}{ends}{empty_ends}"
-        )?;
-    }
-    Ok(())
+    write!(
+        stdout,
+        "{sep}{starts}{starts_to_name}{name}{name_to_ends}{ends}{empty_ends}"
+    )
 }
 
 pub fn format_with_highlight(
