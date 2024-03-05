@@ -81,8 +81,8 @@ pub fn print_with_highlight(
     let name_to_ends = &fname[name_idx.1..ends_idx.0];
     let ends = &fname[ends_idx.0..ends_idx.1].bright_magenta().bold();
     let empty_ends = &fname[ends_idx.1..]; // Needed because we don't want to highlight the end of the path if "--ends" is not specified
-    
-    if ancestors.as_os_str().len() > 1 || !ancestors.starts_with("/") {
+
+    if ancestors.as_os_str().len() > 1 || !ancestors.starts_with(std::path::MAIN_SEPARATOR_STR) {
         write!(stdout, "{}", ancestors.display())?;
     }
     write!(
