@@ -157,7 +157,11 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && sname.contains(&search.name) {
-            let s = crate::print::format_with_highlight(&fname, &sname, &path, search);
+            let s = if search.output == Output::Normal { 
+                crate::print::format_with_highlight(&fname, &sname, &path, search)
+            } else {
+                path.to_string_lossy().into_owned()
+            };
             sender.send(SearchResult::Contains(s)).unwrap();
         }
     }
