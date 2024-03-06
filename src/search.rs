@@ -66,26 +66,38 @@ impl std::fmt::Display for SearchResult {
 }
 
 fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
+    use std::io::Write;
+    
+    // -f
+    if search.first {
+        let Ok(path) = receiver.recv() else {
+            if search.output == Output::Normal {
+                println!("File not found");
+            }
+            std::process::exit(0)
+        };
+        println!("{path}");
+        std::process::exit(0)
+    }
+
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
-
-    let super_simple = search.output == Output::SuperSimple;
-
-    let mut exact = Vec::with_capacity(super_simple as usize * 8);
-    let mut contains = Vec::with_capacity(super_simple as usize * 8);
-
-    while let Ok(path) = receiver.recv() {
-        use std::io::Write;
-        if search.first {
-            println!("{path}");
-            std::process::exit(0)
-        } else if super_simple {
+    
+    // -ss
+    if search.output == Output::SuperSimple {
+        while let Ok(path) = receiver.recv() {
             writeln!(stdout, "{path}").unwrap();
-        } else {
-            match path {
-                SearchResult::Exact(e) => exact.push(e),
-                SearchResult::Contains(c) => contains.push(c),
-            }
+        }
+        stdout.flush().unwrap();
+        std::process::exit(0)
+    }
+    
+    let mut exact = Vec::with_capacity(8);
+    let mut contains = Vec::with_capacity(8);
+    while let Ok(path) = receiver.recv() {
+        match path {
+            SearchResult::Exact(e) => exact.push(e),
+            SearchResult::Contains(c) => contains.push(c),
         }
     }
     (exact, contains)
