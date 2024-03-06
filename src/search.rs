@@ -69,15 +69,17 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
 
-    let mut exact = Vec::with_capacity(8);
-    let mut contains = Vec::with_capacity(8);
+    let super_simple = search.output == Output::SuperSimple;
+
+    let mut exact = Vec::with_capacity(super_simple as usize * 8);
+    let mut contains = Vec::with_capacity(super_simple as usize * 8);
 
     while let Ok(path) = receiver.recv() {
         use std::io::Write;
         if search.first {
             println!("{path}");
             std::process::exit(0)
-        } else if search.output == Output::SuperSimple {
+        } else if super_simple {
             writeln!(stdout, "{path}").unwrap();
         } else {
             match path {
