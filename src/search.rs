@@ -67,7 +67,7 @@ impl std::fmt::Display for SearchResult {
 
 fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     use std::io::Write;
-    
+
     // -f
     if search.first {
         let Ok(path) = receiver.recv() else {
@@ -82,7 +82,7 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
 
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
-    
+
     // -ss
     if search.output == Output::SuperSimple {
         while let Ok(path) = receiver.recv() {
@@ -91,7 +91,7 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
         stdout.flush().unwrap();
         std::process::exit(0)
     }
-    
+
     let mut exact = Vec::with_capacity(8);
     let mut contains = Vec::with_capacity(8);
     while let Ok(path) = receiver.recv() {
@@ -157,7 +157,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && sname.contains(&search.name) {
-            let s = if search.output == Output::Normal { 
+            let s = if search.output == Output::Normal {
                 crate::print::format_with_highlight(&fname, &sname, &path, search)
             } else {
                 path.to_string_lossy().into_owned()
