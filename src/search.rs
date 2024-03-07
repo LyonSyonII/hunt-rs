@@ -213,7 +213,7 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
             return true;
         }
     }
-    if let Some(name) = file_name(entry.path()) {
+    if let Some(name) = file_name(&entry.path()) {
         name.to_str().map(|s| s.starts_with(".")).unwrap_or(false)
     } else {
         false
@@ -245,6 +245,6 @@ pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&std::ffi::
 /// If the path terminates in ., .., or consists solely of a root of prefix,
 /// file_name will return None.
 #[cfg(not(unix))]
-pub(crate) fn file_name<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> Option<&'a OsStr> {
+pub(crate) fn file_name<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> Option<&'a std::ffi::OsStr> {
     path.as_ref().file_name()
 }
