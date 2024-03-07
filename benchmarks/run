@@ -1,35 +1,38 @@
+// https://github.com/lyonsyonii/run
+
+const build = cargo build --release
+const hunt = ../target/release/hunt
+const fd = fd --unrestricted --color=never
+
 // Search one file in ~/
 cmd 1() {
-   # Benchmark 1: Searching file in ~/
-   # File is in "/home/user/.wine/drive_c/users/user/AppData/Local/mygame/User Data/Crashpad/reports/SomeFile"
-   HUNT="hunt --hidden --first --exact SomeFile $HOME";
-   FD="fd --hidden --no-ignore --color=never --max-results=1 SomeFile $HOME";
-   FIND="find $HOME -name SomeFile -print -quit";
-   # LOCATE='locate -n 1 -A SomeFile'
-   hyperfine -N --warmup 2 --ignore-failure "$FIND"  \
+   $build;
+   HUNT="$hunt --hidden --first --exact SomeFile $HOME";
+   FD="$fd --max-results=1 SomeFile $HOME";
+   # FIND="find $HOME -name SomeFile -print -quit";
+   hyperfine -N --warmup 100 --ignore-failure \
       "$FD" \
       "$HUNT" \
+      # "$FIND"
 }
 
 // Search multiple files in ~/
 cmd 2() {
-   # Benchmark 2: Searching multiple files in ~/
-   HUNT="hunt --hidden --exact SomeFile $HOME";
-   FD="fd --hidden --no-ignore --color=never SomeFile $HOME";
-   FIND="find $HOME -name SomeFile -print";
-   # LOCATE='locate -n 1 -A SomeFile'
-   hyperfine -N --warmup 2 --ignore-failure "$FIND"  \
+   $build;
+   HUNT="$hunt --hidden SomeFile $HOME";
+   FD="$fd SomeFile $HOME";
+   # FIND="find $HOME -name SomeFile -print";
+   hyperfine -N --warmup 1 --ignore-failure  \
       "$FD" \
       "$HUNT" \
+      # "$FIND"
 }
 
 // Search multiple files in /
 cmd 3() {
-   # Benchmark 3: Searching multiple files in /
-   HUNT="hunt --hidden --exact SomeFile /";
-   FD="fd --hidden --no-ignore --color=never SomeFile /";
-   # FIND="find / -name SomeFile -print";
-   # LOCATE='locate -n 1 -A SomeFile'
+   $build;
+   HUNT="$hunt --hidden --exact SomeFile /";
+   FD="$fd SomeFile /";
    hyperfine -N --warmup 1 --ignore-failure \
       "$FD" \
       "$HUNT" \
@@ -37,11 +40,9 @@ cmd 3() {
 
 // Search all files in ~/
 cmd 4() {
-   # Benchmark 3: Searching multiple files in /
-   HUNT="hunt --hidden $HOME";
-   FD="fd --unrestricted --color=never . $HOME";
-   # FIND="find / -name SomeFile -print";
-   # LOCATE='locate -n 1 -A SomeFile'
+   $build;
+   HUNT="$hunt --hidden -ss $HOME";
+   FD="$fd . $HOME";
    hyperfine -N --warmup 1 --ignore-failure \
       "$FD" \
       "$HUNT" \
