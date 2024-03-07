@@ -2,8 +2,10 @@ use clap::Parser;
 
 use std::path::PathBuf;
 
-pub type Buffer = Vec<PathBuf>;
-pub type Buffers = (Buffer, Buffer);
+pub type ContainsBuf = Vec<String>;
+pub type ExactBuf = Vec<PathBuf>;
+pub type Buffers = (ExactBuf, ContainsBuf);
+
 pub struct Search {
     /// If the search must stop when a match is found.
     pub first: bool,

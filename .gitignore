@@ -4,3 +4,5 @@ perf.data
 perf.data.old
 search_db.rs
 main_*.rs.bak
+benchmarks/*
+!benchmarks/run
