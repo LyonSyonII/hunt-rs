@@ -6,7 +6,7 @@ repository = "https://github.com/LyonSyonII/hunt-rs"
 keywords = ["algorithms", "filesystem"]
 readme = "README.md"
 license = "MIT"
-version = "2.1.0"
+version = "2.2.0"
 authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
 
@@ -17,11 +17,13 @@ license = false
 eula = false
 
 [dependencies]
-clap = { version = "4.5.1", features = ["derive", "color"] }
-rayon = "1.8.1"
-parking_lot = "0.12.1"
+clap = { version = "4.5.2", features = ["derive", "color"] }
+rayon = "1.9.0"
 mimalloc = { version = "0.1.39", default-features = false }
-colored = { version = "2.1.0" }
+colored = "2.1.0"
+memchr = "2.7.1"
+crossbeam-channel = "0.5.12"
+rustix = { version = "0.38.31", default-features = false, features = ["fs", "alloc"] }
 
 [profile.release]
 lto = true
@@ -34,6 +36,9 @@ panic = "abort"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[features]
+perf = [] # Enable performance measurements
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]

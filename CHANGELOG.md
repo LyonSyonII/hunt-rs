@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0]
+
+### 🚀 Features
+
+- Use `crossbeam_channel` for up to 90% performance improvement
+- [feat: use ignore hidden detection implementation for correctness](https://github.com/LyonSyonII/hunt-rs/commit/dff0be53c6a2c0d1e4002c51900225d5be8892e7)
+
+### 🐛 Bug Fixes
+
+- [fix: fixed freeze when reading from current directory](https://github.com/LyonSyonII/hunt-rs/commit/f54de3d8963020d2c9266b380d09e736b7bb49f0)
+- [fix: Output is no longer highlighted when -s or -ss is provided](https://github.com/LyonSyonII/hunt-rs/commit/bf9aecbd7d6c49578232d19640ad9e99136a22ae)
+
 ## [2.1.0]
 
 ### 🚀 Features
