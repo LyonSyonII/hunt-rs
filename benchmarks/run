@@ -4,7 +4,7 @@ const build = cargo build --release
 const hunt = ../target/release/hunt
 const fd = fd --unrestricted --color=never
 
-// Search one file in ~/
+/// Search one file in ~/
 cmd 1() {
    $build;
    HUNT="$hunt --hidden --first --exact SomeFile $HOME";
@@ -16,7 +16,7 @@ cmd 1() {
       # "$FIND"
 }
 
-// Search multiple files in ~/
+/// Search multiple files in ~/
 cmd 2() {
    $build;
    HUNT="$hunt --hidden SomeFile $HOME";
@@ -28,7 +28,7 @@ cmd 2() {
       # "$FIND"
 }
 
-// Search multiple files in /
+/// Search multiple files in /
 cmd 3() {
    $build;
    HUNT="$hunt --hidden --exact SomeFile /";
@@ -38,7 +38,7 @@ cmd 3() {
       "$HUNT" \
 }
 
-// Search all files in ~/
+/// Search all files in ~/
 cmd 4() {
    $build;
    HUNT="$hunt --hidden -ss $HOME";
