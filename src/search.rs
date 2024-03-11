@@ -82,10 +82,9 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     let mut exact = Vec::with_capacity(8);
     let mut contains = Vec::with_capacity(8);
     while let Ok(path) = receiver.recv() {
-        if path.is_exact() {
-            exact.push(path.into_path());
-        } else {
-            contains.push(path.into_path());
+        match path {
+            SearchResult::Contains(path) => contains.push(path),
+            SearchResult::Exact(path) => exact.push(path),
         }
     }
     (exact, contains)

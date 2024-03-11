@@ -1,30 +1,25 @@
-#[repr(transparent)]
-pub struct SearchResult {
-    path: thin_str::ThinStr,
+pub type Path = thin_str::ThinStr;
+
+#[repr(C)]
+pub enum SearchResult {
+    Contains(Path),
+    Exact(Path),
 }
 
 impl SearchResult {
-    pub fn contains(s: impl Into<thin_str::ThinStr>) -> Self {
-        SearchResult {
-            path: s.into(),
-        }
+    pub fn contains(path: String) -> Self {
+        Self::Contains(path.into())
     }
-    pub fn exact(mut p: String) -> Self {
-        p.push('\0');
-        SearchResult {
-            path: p.into(),
-        }
-    }
-    pub fn is_exact(&self) -> bool {
-        self.path.ends_with('\0')
-    }
-    pub fn into_path(self) -> thin_str::ThinStr {
-        self.path
+    pub fn exact(path: String) -> Self {
+        Self::Exact(path.into())
     }
 }
 
 impl std::fmt::Display for SearchResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.write_str(&self.path)
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Contains(path) => f.write_str(path),
+            Self::Exact(path) => f.write_str(path),
+        }
     }
 }
