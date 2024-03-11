@@ -2,8 +2,9 @@ use clap::Parser;
 
 use std::path::PathBuf;
 
-pub type ContainsBuf = Vec<String>;
-pub type ExactBuf = Vec<PathBuf>;
+pub type ResultPath = thin_str::ThinStr;
+pub type ContainsBuf = Vec<ResultPath>;
+pub type ExactBuf = Vec<ResultPath>;
 pub type Buffers = (ExactBuf, ContainsBuf);
 
 pub struct Search {

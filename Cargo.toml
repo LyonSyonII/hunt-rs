@@ -23,6 +23,7 @@ mimalloc = { version = "0.1.39", default-features = false }
 colored = "2.1.0"
 memchr = "2.7.1"
 crossbeam-channel = "0.5.12"
+thin_str = "0.1.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "0.38.31", default-features = false, features = ["fs", "alloc"] }

@@ -34,7 +34,7 @@ impl Search {
                 writeln!(stdout, "\nExact:")?;
             }
             for path in ex.into_iter() {
-                writeln!(stdout, "{}", path.display())?;
+                writeln!(stdout, "{path}")?;
             }
         }
         Ok(())

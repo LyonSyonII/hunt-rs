@@ -1,6 +1,6 @@
-use crate::structs::{Buffers, FileType, Output, Search};
+use crate::{searchresult::SearchResult, structs::{Buffers, FileType, Output, Search}};
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 type Receiver = crossbeam_channel::Receiver<SearchResult>;
 type Sender = crossbeam_channel::Sender<SearchResult>;
@@ -51,19 +51,6 @@ impl Search {
         received
     }
 }
-enum SearchResult {
-    Exact(PathBuf),
-    Contains(String),
-}
-
-impl std::fmt::Display for SearchResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            SearchResult::Exact(p) => write!(f, "{}", p.display()),
-            SearchResult::Contains(s) => f.write_str(s),
-        }
-    }
-}
 
 fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     use std::io::Write;
@@ -95,9 +82,10 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     let mut exact = Vec::with_capacity(8);
     let mut contains = Vec::with_capacity(8);
     while let Ok(path) = receiver.recv() {
-        match path {
-            SearchResult::Exact(e) => exact.push(e),
-            SearchResult::Contains(c) => contains.push(c),
+        if path.is_exact() {
+            exact.push(path.into_path());
+        } else {
+            contains.push(path.into_path());
         }
     }
     (exact, contains)
@@ -153,7 +141,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
     if starts && ends && ftype {
         // If file name is equal to search name, write it to the "Exact" buffer
         if sname == search.name {
-            sender.send(SearchResult::Exact(path.clone())).unwrap();
+            sender.send(SearchResult::exact(path.to_string_lossy().into_owned())).unwrap();
         }
         // If file name contains the search name, write it to the "Contains" buffer
         else if !search.exact && sname.contains(&search.name) {
@@ -162,7 +150,7 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
             } else {
                 path.to_string_lossy().into_owned()
             };
-            sender.send(SearchResult::Contains(s)).unwrap();
+            sender.send(SearchResult::contains(s)).unwrap();
         }
     }
 
@@ -180,8 +168,8 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
     }
 }
 
-// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
-
+/// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
+/// 
 /// Returns true if and only if this entry is considered to be hidden.
 ///
 /// This only returns true if the base name of the path starts with a `.`.
@@ -194,6 +182,8 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
     file_name(&entry.path()).is_some_and(|name| name.as_bytes().first() == Some(&b'.'))
 }
 
+/// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
+/// 
 /// Returns true if and only if this entry is considered to be hidden.
 ///
 /// On Windows, this returns true if one of the following is true:
@@ -220,6 +210,8 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
     }
 }
 
+/// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
+/// 
 /// The final component of the path, if it is a normal file.
 ///
 /// If the path terminates in ., .., or consists solely of a root of prefix,
@@ -240,6 +232,8 @@ pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&std::ffi::
     Some(std::ffi::OsStr::from_bytes(&path[last_slash..]))
 }
 
+/// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
+/// 
 /// The final component of the path, if it is a normal file.
 ///
 /// If the path terminates in ., .., or consists solely of a root of prefix,

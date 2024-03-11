@@ -1,9 +1,9 @@
 mod print;
 mod search;
 mod structs;
-// mod bumpalo_herd;
+mod searchresult;
 
-#[cfg(not(test))]
+#[cfg(not(any(test, miri)))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 

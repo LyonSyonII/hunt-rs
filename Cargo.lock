@@ -185,6 +185,7 @@ dependencies = [
  "mimalloc",
  "rayon",
  "rustix",
+ "thin_str",
  "winapi-util",
 ]
 
@@ -298,6 +299,12 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "thin_str"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be9d479371ac7a8e00f077b47e26db313447fa59ca276ad73c4716975f3895d4"
 
 [[package]]
 name = "unicode-ident"
