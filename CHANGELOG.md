@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0]
+
+### 🚀 Features
+
+- Multiple small optimizations for up to 25% performance improvement
+  - Parallelism is now at directory level instead of file level
+
 ## [2.2.0]
 
 ### 🚀 Features

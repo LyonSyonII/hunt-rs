@@ -6,7 +6,7 @@ repository = "https://github.com/LyonSyonII/hunt-rs"
 keywords = ["algorithms", "filesystem"]
 readme = "README.md"
 license = "MIT"
-version = "2.2.0"
+version = "2.3.0"
 authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
 
@@ -37,6 +37,11 @@ codegen-units = 1
 strip = true
 debug = false
 panic = "abort"
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = false
 
 # The profile that 'cargo dist' will build with
 [profile.dist]
