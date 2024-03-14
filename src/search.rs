@@ -1,6 +1,6 @@
 use crate::{searchresult::SearchResult, structs::{Buffers, FileType, Output, Search}};
-use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
-use std::path::{Path, PathBuf};
+use rayon::iter::{ParallelBridge, ParallelIterator};
+use std::path::Path;
 
 type Receiver = crossbeam_channel::Receiver<SearchResult>;
 type Sender = crossbeam_channel::Sender<SearchResult>;
