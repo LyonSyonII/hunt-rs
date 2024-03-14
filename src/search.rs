@@ -39,16 +39,14 @@ impl Search {
         });
 
         // Search in directories
-        let received = rayon::scope(move |s| {
+        rayon::scope(move |s| {
             s.spawn(move |_| {
                 dirs.into_iter()
                     .par_bridge()
                     .for_each(|dir| search_path(dir.as_ref(), self, sender.clone()))
             });
             receive_paths(receiver, self)
-        });
-
-        received
+        })
     }
 }
 
