@@ -24,23 +24,27 @@ sub bench {
    /// Search multiple files in ~/
    cmd 2() {
       $build;
-      HUNT="$hunt --hidden SomeFile $HOME";
+      HUNT="../target/release/hunt-pariter --hidden SomeFile $HOME";
+      HUNT2="$hunt --hidden SomeFile $HOME";
       FD="$fd SomeFile $HOME";
       # FIND="find $HOME -name SomeFile -print";
       hyperfine -N --warmup 1 --ignore-failure  \
          "$FD" \
          "$HUNT" \
+         "$HUNT2"
          # "$FIND"
    }
 
    /// Search multiple files in /
    cmd 3() {
       $build;
-      HUNT="$hunt --hidden SomeFile /";
+      HUNT="../target/release/hunt-iter --hidden SomeFile /";
+      HUNT2="$hunt --hidden SomeFile /";
       FD="$fd SomeFile /";
       hyperfine -N --warmup 1 --ignore-failure \
          "$FD" \
-         "$HUNT"
+         "$HUNT" \
+         "$HUNT2"
    }
 
    /// Search all files in ~/
