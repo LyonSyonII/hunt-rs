@@ -70,7 +70,7 @@ pub fn print_with_highlight(
     } else {
         get_start_end(&search.ends)
     };
-    
+
     use colored::Colorize;
 
     // let ancestors = ancestors.display();

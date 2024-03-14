@@ -1,4 +1,7 @@
-use crate::{searchresult::SearchResult, structs::{Buffers, FileType, Output, Search}};
+use crate::{
+    searchresult::SearchResult,
+    structs::{Buffers, FileType, Output, Search},
+};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::path::Path;
 
@@ -57,10 +60,12 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
         }
         return;
     };
-    
+
     rayon::scope(|s| {
         for entry in read.flatten() {
-            let Some((result, is_dir)) = is_result(entry, search) else { continue };
+            let Some((result, is_dir)) = is_result(entry, search) else {
+                continue;
+            };
             if let Some(result) = result {
                 sender.send(result).unwrap();
             }
@@ -71,75 +76,86 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
     })
 }
 
-fn is_result(entry: std::fs::DirEntry, search: &Search) -> Option<(Option<SearchResult>, Option<Box<Path>>)> {
-        // Get entry name
-        let path = entry.path();
-        let fname = file_name(&path).unwrap();
-        let fname = fname.to_string_lossy();
-        let sname: std::borrow::Cow<str> = if search.case_sensitive {
-            fname.as_ref().into()
-        } else {
-            fname.to_ascii_lowercase().into()
-        };
-        
-        if search.explicit_ignore.binary_search(&path).is_ok() {
-            return None;
-        }
-        
-        let hardcoded = || {
-            search
-                .hardcoded_ignore
-                .binary_search_by(|p| std::path::Path::new(p).cmp(&path))
-                .is_ok()
-        };
+fn is_result(
+    entry: std::fs::DirEntry,
+    search: &Search,
+) -> Option<(Option<SearchResult>, Option<Box<Path>>)> {
+    // Get entry name
+    let path = entry.path();
+    let fname = file_name(&path).unwrap();
+    let fname = fname.to_string_lossy();
+    let sname: std::borrow::Cow<str> = if search.case_sensitive {
+        fname.as_ref().into()
+    } else {
+        fname.to_ascii_lowercase().into()
+    };
 
-        let is_hidden = || {
-            #[cfg(unix)] {
-                is_hidden(&path)
-            }
-            #[cfg(windows)] {
-                is_hidden(&entry)
-            }
-        };
-        
-        if !search.hidden && (is_hidden() || hardcoded()) {
-            return None;
+    if search.explicit_ignore.binary_search(&path).is_ok() {
+        return None;
+    }
+
+    let hardcoded = || {
+        search
+            .hardcoded_ignore
+            .binary_search_by(|p| std::path::Path::new(p).cmp(&path))
+            .is_ok()
+    };
+
+    let is_hidden = || {
+        #[cfg(unix)]
+        {
+            is_hidden(&path)
         }
-        
-        // Read type of file and check if it should be added to search results
-        let is_dir = matches!(entry.file_type(), Ok(ftype) if ftype.is_dir());
-        let ftype = match search.ftype {
-            FileType::Dir => is_dir,
-            FileType::File => !is_dir,
-            FileType::All => true,
-        };
-        
-        let starts = search.starts.is_empty() || sname.starts_with(&search.starts);
-        let ends = search.ends.is_empty() || sname.ends_with(&search.ends);
-        
-        if starts && ends && ftype {
-            // If file name is equal to search name, write it to the "Exact" buffer
-            if sname == search.name {
-                return Some((Some(SearchResult::exact(path.to_string_lossy().into_owned())), is_dir.then_some(path.into_boxed_path())));
-            }
-            // If file name contains the search name, write it to the "Contains" buffer
-            else if !search.exact && sname.contains(&search.name) {
-                let s = if search.output == Output::Normal {
-                    crate::print::format_with_highlight(&fname, &sname, &path, search)
-                } else {
-                    path.to_string_lossy().into_owned()
-                };
-                return Some((Some(SearchResult::contains(s)), is_dir.then_some(path.into_boxed_path())));
-            }
+        #[cfg(windows)]
+        {
+            is_hidden(&entry)
         }
-        Some((None, is_dir.then_some(path.into_boxed_path())))
+    };
+
+    if !search.hidden && (is_hidden() || hardcoded()) {
+        return None;
+    }
+
+    // Read type of file and check if it should be added to search results
+    let is_dir = matches!(entry.file_type(), Ok(ftype) if ftype.is_dir());
+    let ftype = match search.ftype {
+        FileType::Dir => is_dir,
+        FileType::File => !is_dir,
+        FileType::All => true,
+    };
+
+    let starts = search.starts.is_empty() || sname.starts_with(&search.starts);
+    let ends = search.ends.is_empty() || sname.ends_with(&search.ends);
+
+    if starts && ends && ftype {
+        // If file name is equal to search name, write it to the "Exact" buffer
+        if sname == search.name {
+            return Some((
+                Some(SearchResult::exact(path.to_string_lossy().into_owned())),
+                is_dir.then_some(path.into_boxed_path()),
+            ));
+        }
+        // If file name contains the search name, write it to the "Contains" buffer
+        else if !search.exact && sname.contains(&search.name) {
+            let s = if search.output == Output::Normal {
+                crate::print::format_with_highlight(&fname, &sname, &path, search)
+            } else {
+                path.to_string_lossy().into_owned()
+            };
+            return Some((
+                Some(SearchResult::contains(s)),
+                is_dir.then_some(path.into_boxed_path()),
+            ));
+        }
+    }
+    Some((None, is_dir.then_some(path.into_boxed_path())))
 }
 
 // pub static MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     use std::io::Write;
-    
+
     // -f
     if search.first {
         let Ok(path) = receiver.recv() else {
@@ -151,10 +167,10 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
         println!("{path}");
         std::process::exit(0)
     }
-    
+
     let stdout = std::io::stdout();
     let mut stdout = std::io::BufWriter::new(stdout.lock());
-    
+
     // -ss
     if search.output == Output::SuperSimple {
         while let Ok(path) = receiver.recv() {
@@ -176,7 +192,7 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
 }
 
 /// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
-/// 
+///
 /// Returns true if and only if this entry is considered to be hidden.
 ///
 /// This only returns true if the base name of the path starts with a `.`.
@@ -191,7 +207,7 @@ pub(crate) fn is_hidden(path: impl AsRef<Path>) -> bool {
 }
 
 /// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
-/// 
+///
 /// Returns true if and only if this entry is considered to be hidden.
 ///
 /// On Windows, this returns true if one of the following is true:
@@ -220,7 +236,7 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
 }
 
 /// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
-/// 
+///
 /// The final component of the path, if it is a normal file.
 ///
 /// If the path terminates in ., .., or consists solely of a root of prefix,
@@ -243,7 +259,7 @@ pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&std::ffi::
 }
 
 /// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
-/// 
+///
 /// The final component of the path, if it is a normal file.
 ///
 /// If the path terminates in ., .., or consists solely of a root of prefix,
