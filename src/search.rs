@@ -1,5 +1,5 @@
 use crate::{searchresult::SearchResult, structs::{Buffers, FileType, Output, Search}};
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
 use std::path::Path;
 
 type Receiver = crossbeam_channel::Receiver<SearchResult>;
@@ -41,8 +41,8 @@ impl Search {
         // Search in directories
         rayon::scope(move |s| {
             s.spawn(move |_| {
-                dirs.into_iter()
-                    .par_bridge()
+                dirs.collect::<Vec<_>>()
+                    .into_par_iter()
                     .for_each(|dir| search_path(dir.as_ref(), self, sender.clone()))
             });
             receive_paths(receiver, self)
@@ -91,7 +91,8 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
 fn search_path(dir: &Path, search: &Search, sender: Sender) {
     if let Ok(read) = std::fs::read_dir(dir) {
         read.flatten()
-            .par_bridge()
+            .collect::<Vec<_>>()
+            .into_par_iter()
             .for_each(|entry| search_dir(entry, search, sender.clone()));
     } else if search.verbose {
         eprintln!("Could not read {:?}", dir);
@@ -162,7 +163,8 @@ fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
 
     if let Ok(read) = std::fs::read_dir(&path) {
         read.flatten()
-            .par_bridge()
+            .collect::<Vec<_>>()
+            .into_par_iter()
             .for_each(|entry| search_dir(entry, search, sender.clone()));
     } else if search.verbose {
         eprintln!("Could not read {:?}", path);
