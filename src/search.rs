@@ -71,16 +71,16 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
     })
 }
 
-fn is_result(entry: std::fs::DirEntry, search: &Search) -> Option<(Option<SearchResult>, Option<PathBuf>)> {
+fn is_result(entry: std::fs::DirEntry, search: &Search) -> Option<(Option<SearchResult>, Option<Box<Path>>)> {
         // Get entry name
-        let fname = entry.file_name();
+        let path = entry.path();
+        let fname = file_name(&path).unwrap();
         let fname = fname.to_string_lossy();
         let sname: std::borrow::Cow<str> = if search.case_sensitive {
             fname.as_ref().into()
         } else {
             fname.to_ascii_lowercase().into()
         };
-        let path = entry.path();
         
         if search.explicit_ignore.binary_search(&path).is_ok() {
             return None;
@@ -92,8 +92,17 @@ fn is_result(entry: std::fs::DirEntry, search: &Search) -> Option<(Option<Search
                 .binary_search_by(|p| std::path::Path::new(p).cmp(&path))
                 .is_ok()
         };
+
+        let is_hidden = || {
+            #[cfg(unix)] {
+                is_hidden(&path)
+            }
+            #[cfg(windows)] {
+                is_hidden(&entry)
+            }
+        };
         
-        if !search.hidden && (is_hidden(&entry) || hardcoded()) {
+        if !search.hidden && (is_hidden() || hardcoded()) {
             return None;
         }
         
@@ -111,7 +120,7 @@ fn is_result(entry: std::fs::DirEntry, search: &Search) -> Option<(Option<Search
         if starts && ends && ftype {
             // If file name is equal to search name, write it to the "Exact" buffer
             if sname == search.name {
-                return Some((Some(SearchResult::exact(path.to_string_lossy().into_owned())), is_dir.then_some(path)));
+                return Some((Some(SearchResult::exact(path.to_string_lossy().into_owned())), is_dir.then_some(path.into_boxed_path())));
             }
             // If file name contains the search name, write it to the "Contains" buffer
             else if !search.exact && sname.contains(&search.name) {
@@ -120,10 +129,10 @@ fn is_result(entry: std::fs::DirEntry, search: &Search) -> Option<(Option<Search
                 } else {
                     path.to_string_lossy().into_owned()
                 };
-                return Some((Some(SearchResult::contains(s)), is_dir.then_some(path)));
+                return Some((Some(SearchResult::contains(s)), is_dir.then_some(path.into_boxed_path())));
             }
         }
-        Some((None, is_dir.then_some(path)))
+        Some((None, is_dir.then_some(path.into_boxed_path())))
 }
 
 // pub static MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -174,10 +183,11 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
 ///
 /// On Unix, this implements a more optimized check.
 #[cfg(unix)]
-pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
+#[inline(always)]
+pub(crate) fn is_hidden(path: impl AsRef<Path>) -> bool {
     use std::os::unix::ffi::OsStrExt;
 
-    file_name(&entry.path()).is_some_and(|name| name.as_bytes().first() == Some(&b'.'))
+    file_name(path.as_ref()).is_some_and(|name| name.as_bytes().first() == Some(&b'.'))
 }
 
 /// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
@@ -189,6 +199,7 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
 /// * The base name of the path starts with a `.`.
 /// * The file attributes have the `HIDDEN` property set.
 #[cfg(windows)]
+#[inline(always)]
 pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
     use std::os::windows::fs::MetadataExt;
     use winapi_util::file;
@@ -215,6 +226,7 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
 /// If the path terminates in ., .., or consists solely of a root of prefix,
 /// file_name will return None.
 #[cfg(unix)]
+#[inline(always)]
 pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&std::ffi::OsStr> {
     use std::os::unix::ffi::OsStrExt;
 
@@ -237,6 +249,7 @@ pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&std::ffi::
 /// If the path terminates in ., .., or consists solely of a root of prefix,
 /// file_name will return None.
 #[cfg(not(unix))]
+#[inline(always)]
 pub(crate) fn file_name<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> Option<&'a std::ffi::OsStr> {
     path.as_ref().file_name()
 }
