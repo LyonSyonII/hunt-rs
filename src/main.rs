@@ -44,13 +44,11 @@ macro_rules! perf {
 
 fn main() -> std::io::Result<()> {
     let search = structs::Cli::run();
-    // std::env::set_var("RUST_MIN_STACK", format!("{}", 1024 * 1024 * 1024));
-
+    
     perf! {
         ctx = "search";
         let buffers = search.search();
     }
     search.print_results(buffers)?;
-    // dbg!(&crate::search::MAX);
     Ok(())
 }

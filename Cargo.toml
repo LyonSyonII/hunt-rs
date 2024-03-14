@@ -6,7 +6,7 @@ repository = "https://github.com/LyonSyonII/hunt-rs"
 keywords = ["algorithms", "filesystem"]
 readme = "README.md"
 license = "MIT"
-version = "2.2.0"
+version = "2.3.0"
 authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
 
@@ -24,8 +24,6 @@ colored = "2.1.0"
 memchr = "2.7.1"
 crossbeam-channel = "0.5.12"
 thin_str = "0.1.0"
-thingbuf = "0.1.4"
-backtrace = "0.3.69"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "0.38.31", default-features = false, features = ["fs", "alloc"] }

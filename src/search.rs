@@ -151,8 +151,6 @@ fn is_result(
     Some((None, is_dir.then_some(path.into_boxed_path())))
 }
 
-// pub static MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
 fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     use std::io::Write;
 
