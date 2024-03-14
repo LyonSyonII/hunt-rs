@@ -100,7 +100,11 @@ fn search_path(dir: &Path, search: &Search, sender: Sender) {
     }
 }
 
+// pub static MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 fn search_dir(entry: std::fs::DirEntry, search: &Search, sender: Sender) {
+    // MAX.fetch_max(backtrace::Backtrace::new().frames().len(), std::sync::atomic::Ordering::Relaxed);
+
     // Get entry name
     let fname = entry.file_name();
     let fname = fname.to_string_lossy();

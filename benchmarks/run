@@ -1,49 +1,55 @@
 // https://github.com/lyonsyonii/run
 
-const build = cargo build --release
-const hunt = ../target/release/hunt
-const fd = fd --unrestricted --color=never
-
-/// Search one file in ~/
-cmd 1() {
-   $build;
-   HUNT="$hunt --hidden --first --exact SomeFile $HOME";
-   FD="$fd --max-results=1 SomeFile $HOME";
-   # FIND="find $HOME -name SomeFile -print -quit";
-   hyperfine -N --warmup 100 --ignore-failure \
-      "$FD" \
-      "$HUNT" \
-      # "$FIND"
+cmd default() {
+   echo "$doc"
 }
 
-/// Search multiple files in ~/
-cmd 2() {
-   $build;
-   HUNT="$hunt --hidden SomeFile $HOME";
-   FD="$fd SomeFile $HOME";
-   # FIND="find $HOME -name SomeFile -print";
-   hyperfine -N --warmup 1 --ignore-failure  \
-      "$FD" \
-      "$HUNT" \
-      # "$FIND"
-}
+sub bench {
+   const build = cargo build --release
+   const hunt = ../target/release/hunt
+   const fd = fd --unrestricted --color=never
+   
+   /// Search one file in ~/
+   cmd 1() {
+      $build;
+      HUNT="$hunt --hidden --first --exact SomeFile $HOME";
+      FD="$fd --max-results=1 SomeFile $HOME";
+      # FIND="find $HOME -name SomeFile -print -quit";
+      hyperfine -N --warmup 100 --ignore-failure \
+         "$FD" \
+         "$HUNT" \
+         # "$FIND"
+   }
 
-/// Search multiple files in /
-cmd 3() {
-   $build;
-   HUNT="$hunt --hidden --exact SomeFile /";
-   FD="$fd SomeFile /";
-   hyperfine -N --warmup 1 --ignore-failure \
-      "$FD" \
-      "$HUNT" \
-}
+   /// Search multiple files in ~/
+   cmd 2() {
+      $build;
+      HUNT="$hunt --hidden SomeFile $HOME";
+      FD="$fd SomeFile $HOME";
+      # FIND="find $HOME -name SomeFile -print";
+      hyperfine -N --warmup 1 --ignore-failure  \
+         "$FD" \
+         "$HUNT" \
+         # "$FIND"
+   }
 
-/// Search all files in ~/
-cmd 4() {
-   $build;
-   HUNT="$hunt --hidden -ss $HOME";
-   FD="$fd . $HOME";
-   hyperfine -N --warmup 1 --ignore-failure \
-      "$FD" \
-      "$HUNT" \
+   /// Search multiple files in /
+   cmd 3() {
+      $build;
+      HUNT="$hunt --hidden SomeFile /";
+      FD="$fd SomeFile /";
+      hyperfine -N --warmup 1 --ignore-failure \
+         "$FD" \
+         "$HUNT"
+   }
+
+   /// Search all files in ~/
+   cmd 4() {
+      $build;
+      HUNT="$hunt --hidden -ss $HOME";
+      FD="$fd . $HOME";
+      hyperfine -N --warmup 1 --ignore-failure \
+         "$FD" \
+         "$HUNT"
+   }
 }

@@ -1,6 +1,5 @@
 pub type Path = thin_str::ThinStr;
 
-#[repr(C)]
 pub enum SearchResult {
     Contains(Path),
     Exact(Path),
