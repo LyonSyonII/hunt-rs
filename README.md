@@ -136,12 +136,22 @@ If the --hidden flag is **not** set, hidden files/directories will be skipped, a
         
         hunt -s -e SomeFile | xargs rm -r
 
-## Why I made it?
-I found I used the `find` command just to search one file, so I wanted a simpler and faster option.
+## Motivation
+Normally when I search for a file, I don't know the exact subdirectory where it is, so I end up searching in the whole $HOME directory.
+
+Using the `find` command for this ended up being very slow, as it took a lot of time to traverse all the directories, and the output was also hard to read.
+
+`locate` was faster, but it didn't always find the file I was looking for, as it only searches in its database which isn't updated in real time.
+
+Seeing how `find` did not perform any parallelism at all, I decided to make a multithreaded version of it, and that's how Hunt was born.
 
 Hunt is multithreaded, so it's a lot faster than `find`, and more reliable than `locate` (recent files cannot be found with it).
 
 ## Installation
+### Precompiled binaries
+Download the latest binary from [releases](https://github.com/lyonsyonii/hunt-rs/releases).
+
+### Compile from source
 First check that you have [Rust](https://www.rust-lang.org/) installed, then run
 
     cargo install hunt
