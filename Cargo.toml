@@ -17,13 +17,13 @@ license = false
 eula = false
 
 [dependencies]
-clap = { version = "4.5.2", features = ["derive", "color"] }
-rayon = "1.9.0"
-mimalloc = { version = "0.1.39", default-features = false }
-colored = "2.1.0"
-memchr = "2.7.1"
-crossbeam-channel = "0.5.12"
-thin_str = "0.1.0"
+clap = { version = "4.5.2", features = ["derive", "color"] }    # Command line argument parser
+colored = "2.1.0"                                               # Colored output
+rayon = "1.9.0"                                                 # Parallelism library
+crossbeam-channel = "0.5.12"                                    # Faster channels (mpmc)
+mimalloc = { version = "0.1.39", default-features = false }     # Faster allocator
+thin_str = "0.1.0"                                              # Thinner string (only 8 bytes)
+memchr = "2.7.1"                                                # Small substring search optimization                         
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "0.38.31", default-features = false, features = ["fs", "alloc"] }
