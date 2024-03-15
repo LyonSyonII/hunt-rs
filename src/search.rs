@@ -43,10 +43,11 @@ impl Search {
 
         // Search in directories
         rayon::scope(move |s| {
-            s.spawn(move |_| {
-                dirs.par_bridge()
-                    .for_each(|dir| search_dir(dir.as_ref(), self, sender.clone()))
-            });
+            for dir in dirs {
+                let sender = sender.clone();
+                s.spawn(move |_| search_dir(dir.as_ref(), self, sender));
+            }
+            drop(sender);
             receive_paths(receiver, self)
         })
     }
@@ -60,7 +61,7 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
         }
         return;
     };
-
+    
     rayon::scope(|s| {
         for entry in read.flatten() {
             let Some((result, is_dir)) = is_result(entry, search) else {
@@ -82,13 +83,6 @@ fn is_result(
 ) -> Option<(Option<SearchResult>, Option<Box<Path>>)> {
     // Get entry name
     let path = entry.path();
-    let fname = file_name(&path).unwrap();
-    let fname = fname.to_string_lossy();
-    let sname: std::borrow::Cow<str> = if search.case_sensitive {
-        fname.as_ref().into()
-    } else {
-        fname.to_ascii_lowercase().into()
-    };
 
     if search.explicit_ignore.binary_search(&path).is_ok() {
         return None;
@@ -124,10 +118,18 @@ fn is_result(
         FileType::All => true,
     };
 
-    let starts = search.starts.is_empty() || sname.starts_with(&search.starts);
-    let ends = search.ends.is_empty() || sname.ends_with(&search.ends);
+    let fname = file_name(&path).unwrap();
+    let fname = fname.to_string_lossy();
+    let sname: std::borrow::Cow<str> = if search.case_sensitive {
+        fname.as_ref().into()
+    } else {
+        fname.to_ascii_lowercase().into()
+    };
 
-    if starts && ends && ftype {
+    let starts = || search.starts.is_empty() || sname.starts_with(&search.starts);
+    let ends = || search.ends.is_empty() || sname.ends_with(&search.ends);
+
+    if ftype && starts() && ends() {
         // If file name is equal to search name, write it to the "Exact" buffer
         if sname == search.name {
             return Some((
