@@ -18,25 +18,22 @@ impl Search {
             }
             return Ok(());
         }
-        crate::perf! {
-            ctx = "sort";
-            rayon::join(|| co.par_sort(), || ex.par_sort());
+        
+        rayon::join(|| co.par_sort(), || ex.par_sort());
+        
+        if self.output == Output::Normal {
+            writeln!(stdout, "Contains:")?;
         }
-        crate::perf! {
-            ctx = "print";
-            if self.output == Output::Normal {
-                writeln!(stdout, "Contains:")?;
-            }
-            for path in co.into_iter() {
-                writeln!(stdout, "{path}")?;
-            }
-            if self.output == Output::Normal {
-                writeln!(stdout, "\nExact:")?;
-            }
-            for path in ex.into_iter() {
-                writeln!(stdout, "{path}")?;
-            }
+        for path in co.into_iter() {
+            writeln!(stdout, "{path}")?;
         }
+        if self.output == Output::Normal {
+            writeln!(stdout, "\nExact:")?;
+        }
+        for path in ex.into_iter() {
+            writeln!(stdout, "{path}")?;
+        }
+        
         Ok(())
     }
 }

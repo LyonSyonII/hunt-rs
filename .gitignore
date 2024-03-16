@@ -2,7 +2,8 @@
 flamegraph.svg
 perf.data
 perf.data.old
-search_db.rs
+callgrind.out.*
+gecko_profile.json
 main_*.rs.bak
 benchmarks/*
 !benchmarks/run

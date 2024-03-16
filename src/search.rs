@@ -1,8 +1,6 @@
 use crate::{
-    searchresult::SearchResult,
-    structs::{Buffers, FileType, Output, Search},
+    searchresult::SearchResult, structs::{Buffers, FileType, Output, Search}
 };
-use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::path::Path;
 
 type Receiver = crossbeam_channel::Receiver<SearchResult>;
@@ -155,7 +153,7 @@ fn is_result(
 
 fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     use std::io::Write;
-
+    
     // -f
     if search.first {
         let Ok(path) = receiver.recv() else {

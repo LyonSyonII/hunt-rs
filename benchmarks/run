@@ -4,6 +4,11 @@ cmd default() {
    echo "$doc"
 }
 
+cmd profile() {
+   cargo build --profile profiling
+   perf record -F99 --call-graph dwarf ../target/profiling/hunt --hidden $HOME > /dev/null && perf script report gecko
+}
+
 sub bench {
    const build = cargo build --release
    const hunt = ../target/release/hunt
