@@ -3,6 +3,7 @@ use rayon::prelude::ParallelSliceMut;
 use std::io::Write;
 
 impl Search {
+    #[profi::profile]
     pub fn print_results(self, buffers: Buffers) -> std::io::Result<()> {
         profi::prof!(print_results);
 
@@ -20,12 +21,12 @@ impl Search {
             }
             return Ok(());
         }
-        
+
         {
             profi::prof!(sort);
             rayon::join(|| co.par_sort(), || ex.par_sort());
         }
-        
+
         if self.output == Output::Normal {
             writeln!(stdout, "Contains:")?;
         }
@@ -38,11 +39,12 @@ impl Search {
         for path in ex.into_iter() {
             writeln!(stdout, "{path}")?;
         }
-        
+
         Ok(())
     }
 }
 
+#[profi::profile]
 pub fn print_with_highlight(
     stdout: &mut impl std::io::Write,
     fname: &str,
@@ -93,6 +95,7 @@ pub fn print_with_highlight(
     )
 }
 
+#[profi::profile]
 pub fn format_with_highlight(
     fname: &str,
     sname: &str,

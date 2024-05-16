@@ -38,10 +38,13 @@ pub struct Search {
     pub ftype: FileType,
     /// Directories the user has stated to ignore.
     pub explicit_ignore: Vec<PathBuf>,
-    /// Directories hard-coded to be ignored.
-    pub hardcoded_ignore: [&'static str; 19],
+    // /// Directories hard-coded to be ignored.
+    // pub hardcoded_ignore: phf::Set<&'static str>,
     /// Directories specified by the user to be searched in.
     pub dirs: Vec<PathBuf>,
+    
+    /// Memchr Finder
+    pub finder: memchr::memmem::Finder<'static>
 }
 
 impl Search {
@@ -67,6 +70,7 @@ impl Search {
             1 => Output::Simple,
             _ => Output::SuperSimple,
         };
+        let finder = memchr::memmem::Finder::new(name.as_bytes()).into_owned();
 
         Search {
             first,
@@ -82,7 +86,7 @@ impl Search {
             ends,
             ftype,
             explicit_ignore,
-            hardcoded_ignore: sorted([
+/*             hardcoded_ignore: phf::phf_set! {
                 "/proc",
                 "/root",
                 "/boot",
@@ -102,8 +106,10 @@ impl Search {
                 "/etc/pacman.d",
                 "/etc/sudoers.d",
                 "/etc/audit",
-            ]),
+            }, */
             dirs: search_in_dirs,
+            
+            finder
         }
     }
 }
