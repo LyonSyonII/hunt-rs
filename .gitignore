@@ -6,4 +6,6 @@ callgrind.out.*
 gecko_profile.json
 main_*.rs.bak
 benchmarks/*
+.direnv/
+
 !benchmarks/run

@@ -24,7 +24,7 @@ crossbeam-channel = "0.5.12"                                    # Faster channel
 mimalloc = { version = "0.1.39", default-features = false }     # Faster allocator
 thin_str = "0.1.0"                                              # Thinner string (only 8 bytes)
 memchr = "2.7.1"                                                # Small substring search optimization        
-profi = { version = "*", default-features = false, features = ["rayon", "attributes"]}# Multithreaded fine-grained profiler                 
+profi = { version = "*", default-features = false, features = ["rayon", "attributes"]} # Multithreaded fine-grained profiler                 
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "0.38.31", default-features = false, features = ["fs", "alloc"] }
