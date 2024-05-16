@@ -42,9 +42,9 @@ pub struct Search {
     // pub hardcoded_ignore: phf::Set<&'static str>,
     /// Directories specified by the user to be searched in.
     pub dirs: Vec<PathBuf>,
-    
+
     /// Memchr Finder
-    pub finder: memchr::memmem::Finder<'static>
+    pub finder: memchr::memmem::Finder<'static>,
 }
 
 impl Search {
@@ -86,7 +86,7 @@ impl Search {
             ends,
             ftype,
             explicit_ignore,
-/*             hardcoded_ignore: phf::phf_set! {
+            /*             hardcoded_ignore: phf::phf_set! {
                 "/proc",
                 "/root",
                 "/boot",
@@ -108,8 +108,8 @@ impl Search {
                 "/etc/audit",
             }, */
             dirs: search_in_dirs,
-            
-            finder
+
+            finder,
         }
     }
 }
