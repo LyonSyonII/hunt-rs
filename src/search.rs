@@ -7,6 +7,7 @@ type Receiver = crossbeam_channel::Receiver<SearchResult>;
 type Sender = crossbeam_channel::Sender<SearchResult>;
 
 impl Search {
+    #[profi::profile]
     pub fn search(&self) -> Buffers {
         let (sender, receiver) = crossbeam_channel::bounded(8);
 
@@ -52,6 +53,7 @@ impl Search {
 }
 
 fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
+    profi::prof!(search_dir);
     let path = path.as_ref();
     let Ok(read) = std::fs::read_dir(path) else {
         if search.verbose {
@@ -61,7 +63,9 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
     };
     
     rayon::scope(|s| {
+        profi::prof!(inspect_entries);
         for entry in read.flatten() {
+            profi::prof!(inspect_entry);
             let Some((result, is_dir)) = is_result(entry, search) else {
                 continue;
             };
@@ -72,13 +76,15 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
                 s.spawn(|_| search_dir(path, search, sender.clone()));
             }
         }
-    })
+    });
 }
 
 fn is_result(
     entry: std::fs::DirEntry,
     search: &Search,
 ) -> Option<(Option<SearchResult>, Option<Box<Path>>)> {
+    profi::prof!();
+
     // Get entry name
     let path = entry.path();
 

@@ -240,6 +240,8 @@ pub struct Cli {
 
 impl Cli {
     pub fn run() -> Search {
+        profi::prof!(cli);
+
         let cli = Self::parse();
 
         let mut search_in_dirs = cli.search_in_dirs;

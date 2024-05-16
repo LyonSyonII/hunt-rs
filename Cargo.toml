@@ -23,7 +23,8 @@ rayon = "1.9.0"                                                 # Parallelism li
 crossbeam-channel = "0.5.12"                                    # Faster channels (mpmc)
 mimalloc = { version = "0.1.39", default-features = false }     # Faster allocator
 thin_str = "0.1.0"                                              # Thinner string (only 8 bytes)
-memchr = "2.7.1"                                                # Small substring search optimization                         
+memchr = "2.7.1"                                                # Small substring search optimization        
+profi = { version = "*", default-features = false, features = ["rayon", "attributes"]}# Multithreaded fine-grained profiler                 
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "0.38.31", default-features = false, features = ["fs", "alloc"] }
@@ -49,7 +50,7 @@ inherits = "release"
 lto = "thin"
 
 [features]
-perf = [] # Enable performance measurements
+perf = ["profi/enable"] # Enable performance measurements
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]
