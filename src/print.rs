@@ -3,7 +3,10 @@ use rayon::prelude::ParallelSliceMut;
 use std::io::Write;
 
 impl Search {
+    #[profi::profile]
     pub fn print_results(self, buffers: Buffers) -> std::io::Result<()> {
+        profi::prof!(print_results);
+
         if self.output == Output::SuperSimple {
             return Ok(());
         }
@@ -18,29 +21,60 @@ impl Search {
             }
             return Ok(());
         }
-        crate::perf! {
-            ctx = "sort";
+
+        {
+            profi::prof!(sort);
             rayon::join(|| co.par_sort(), || ex.par_sort());
         }
-        crate::perf! {
-            ctx = "print";
-            if self.output == Output::Normal {
-                writeln!(stdout, "Contains:")?;
-            }
-            for path in co.into_iter() {
-                writeln!(stdout, "{path}")?;
-            }
-            if self.output == Output::Normal {
-                writeln!(stdout, "\nExact:")?;
-            }
-            for path in ex.into_iter() {
-                writeln!(stdout, "{path}")?;
-            }
+        
+        if self.select {
+            return select((ex, co), stdout);
         }
+        if self.multiselect {
+            return multiselect((ex, co), stdout);
+        }
+
+        if self.output == Output::Normal {
+            writeln!(stdout, "Contains:")?;
+        }
+        for path in co.into_iter() {
+            writeln!(stdout, "{path}")?;
+        }
+        if self.output == Output::Normal {
+            writeln!(stdout, "\nExact:")?;
+        }
+        for path in ex.into_iter() {
+            writeln!(stdout, "{path}")?;
+        }
+
         Ok(())
     }
 }
 
+pub fn select((ex, co): Buffers, mut stdout: impl std::io::Write) -> std::io::Result<()> {
+    let v = ex.into_iter().chain(co).collect();
+    let selected = inquire::Select::new("Select a file:", v).prompt();
+    if let Ok(selected) = selected {
+        write!(stdout, "{selected}")?;
+    }
+    Ok(())
+}
+
+pub fn multiselect((ex, co): Buffers, mut stdout: impl std::io::Write) -> std::io::Result<()> {
+    let v = ex.into_iter().chain(co).collect();
+    let mut selected = inquire::MultiSelect::new("Select files:", v)
+        .prompt().unwrap_or_default().into_iter();
+    
+    if let Some(f) = selected.next() {
+        write!(stdout, "{f}")?;
+    }
+    for f in selected {
+        write!(stdout, " {f}")?;
+    }
+    Ok(())
+}
+
+#[profi::profile]
 pub fn print_with_highlight(
     stdout: &mut impl std::io::Write,
     fname: &str,
@@ -91,6 +125,7 @@ pub fn print_with_highlight(
     )
 }
 
+#[profi::profile]
 pub fn format_with_highlight(
     fname: &str,
     sname: &str,
