@@ -22,34 +22,30 @@ sub bench {
       # FIND="find $HOME -name SomeFile -print -quit";
       hyperfine -N --warmup 100 --ignore-failure \
          "$FD" \
-         "$HUNT" \
+         "$HUNT"
          # "$FIND"
    }
 
    /// Search multiple files in ~/
    cmd 2() {
       $build;
-      HUNT="hunt --hidden SomeFile $HOME";
-      HUNT2="$hunt --hidden SomeFile $HOME";
+      HUNT="$hunt --hidden SomeFile $HOME";
       FD="$fd SomeFile $HOME";
       # FIND="find $HOME -name SomeFile -print";
       hyperfine -N --warmup 1 --ignore-failure  \
          "$FD" \
-         "$HUNT" \
-         "$HUNT2"
+         "$HUNT"
          # "$FIND"
    }
 
    /// Search multiple files in /
    cmd 3() {
       $build;
-      HUNT="hunt --hidden SomeFile /";
-      HUNT2="$hunt --hidden SomeFile /";
+      HUNT="$hunt --hidden SomeFile /";
       FD="$fd SomeFile /";
       hyperfine -N --warmup 1 --ignore-failure \
          "$FD" \
-         "$HUNT" \
-         "$HUNT2"
+         "$HUNT"
    }
 
    /// Search all files in ~/
