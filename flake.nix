@@ -18,6 +18,7 @@
           lld
           mold
           rust-analyzer-nightly
+          fd
 
           fenix.complete.rustc
           fenix.complete.cargo
