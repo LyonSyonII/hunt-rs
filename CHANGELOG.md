@@ -2,14 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.3.0]
+## \[2.4.0]
+
+### 🚀 Features
+
+- Add `--select` and `--multiselect` options for an interactive file select screen.
+  - Useful for chaining `hunt` with other commands.
+- Remove implicit ignore list, as it affected performance globally for a very small gain in specific queries.
+- More optimized substring search with [memchr](https://crates.io/crates/memchr).
+
+## \[2.3.0]
 
 ### 🚀 Features
 
 - Multiple small optimizations for up to 25% performance improvement
   - Parallelism is now at directory level instead of file level
 
-## [2.2.0]
+## \[2.2.0]
 
 ### 🚀 Features
 
@@ -21,7 +30,7 @@ All notable changes to this project will be documented in this file.
 - [fix: fixed freeze when reading from current directory](https://github.com/LyonSyonII/hunt-rs/commit/f54de3d8963020d2c9266b380d09e736b7bb49f0)
 - [fix: Output is no longer highlighted when -s or -ss is provided](https://github.com/LyonSyonII/hunt-rs/commit/bf9aecbd7d6c49578232d19640ad9e99136a22ae)
 
-## [2.1.0]
+## \[2.1.0]
 
 ### 🚀 Features
 
@@ -33,7 +42,7 @@ All notable changes to this project will be documented in this file.
 - Avoid allocation in case of case_sensitivity
 - Fixed canonicalization
 
-## [2.0.0]
+## \[2.0.0]
 ### Breaking changes
 - Updated to clap 4.3.0.
 - Changed `case_sensitive` flag from `-c` to `-C`.
