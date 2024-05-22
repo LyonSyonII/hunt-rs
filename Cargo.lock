@@ -345,9 +345,9 @@ dependencies = [
 
 [[package]]
 name = "profi"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "459e6eeefd402b40e5b412c466000bd2bedb30452f8baccb5a658abcea660a4c"
+checksum = "41a7771fea2a42f1d0df39c3c9a742284b56166670393884fca87eb56d43efc0"
 dependencies = [
  "beef",
  "comfy-table",
@@ -359,9 +359,9 @@ dependencies = [
 
 [[package]]
 name = "profi-attributes"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5de21eb23fff8887286dceb38007da2692d6ec8b330dcb23ddeeb0c84838274"
+checksum = "725c1a2cf15516eb45afb27f7d86889132299f5756e245043c046c7a34126cab"
 dependencies = [
  "proc-macro-crate",
 ]

@@ -29,7 +29,7 @@ sub bench {
    /// Search multiple files in ~/
    cmd 2() {
       $build;
-      HUNT="../target/release/hunt-pariter --hidden SomeFile $HOME";
+      HUNT="hunt --hidden SomeFile $HOME";
       HUNT2="$hunt --hidden SomeFile $HOME";
       FD="$fd SomeFile $HOME";
       # FIND="find $HOME -name SomeFile -print";
@@ -43,7 +43,7 @@ sub bench {
    /// Search multiple files in /
    cmd 3() {
       $build;
-      HUNT="../target/release/hunt-iter --hidden SomeFile /";
+      HUNT="hunt --hidden SomeFile /";
       HUNT2="$hunt --hidden SomeFile /";
       FD="$fd SomeFile /";
       hyperfine -N --warmup 1 --ignore-failure \

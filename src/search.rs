@@ -104,14 +104,7 @@ fn is_result(
             return None;
         }
     }
-
-    /*     let hardcoded = || {
-        profi::prof!("is_result::hardcoded_ignore");
-        search
-            .hardcoded_ignore
-            .contains(unsafe { std::mem::transmute::<&Path, &str>(path.as_path()) })
-    }; */
-
+    
     let is_hidden = || {
         #[cfg(unix)]
         {
@@ -126,7 +119,7 @@ fn is_result(
 
     {
         profi::prof!("is_result::hidden_check");
-        if !search.hidden && (is_hidden()/* || hardcoded() */) {
+        if !search.hidden && is_hidden() {
             return None;
         }
     }
