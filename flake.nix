@@ -29,6 +29,7 @@
           fenix.complete.llvm-tools-preview
         ];
         RUST_SRC_PATH = "${pkgs.fenix.complete.rust-src}/lib/rustlib/src/rust/library";
+        RUSTFLAGS="-Zcodegen-backend=llvm";
       };
     });
 }
