@@ -22,6 +22,10 @@ pub struct Search {
     pub verbose: bool,
     /// If hidden directories must be traversed and hidden files counted as matches.
     pub hidden: bool,
+    /// If the select interface will be shown.
+    pub select: bool,
+    /// If the multiselect interface will be shown.
+    pub multiselect: bool,
     /// Type of the output.
     ///
     /// Simple makes it not to be highlighted and removes the "Exact:" and "Contains:" distinctions.
@@ -57,6 +61,8 @@ impl Search {
         limit: bool,
         verbose: bool,
         hidden: bool,
+        select: bool,
+        multiselect: bool,
         output: u8,
         name: String,
         starts: String,
@@ -71,7 +77,7 @@ impl Search {
             _ => Output::SuperSimple,
         };
         let finder = memchr::memmem::Finder::new(name.as_bytes()).into_owned();
-
+        
         Search {
             first,
             exact,
@@ -80,33 +86,14 @@ impl Search {
             limit,
             verbose,
             hidden,
+            select,
+            multiselect,
             output,
             name,
             starts,
             ends,
             ftype,
             explicit_ignore,
-            /*             hardcoded_ignore: phf::phf_set! {
-                "/proc",
-                "/root",
-                "/boot",
-                "/dev",
-                "/lib",
-                "/lib64",
-                "/lost+found",
-                "/run",
-                "/sbin",
-                "/sys",
-                "/tmp",
-                "/var/tmp",
-                "/var/lib",
-                "/var/log",
-                "/var/db",
-                "/var/cache",
-                "/etc/pacman.d",
-                "/etc/sudoers.d",
-                "/etc/audit",
-            }, */
             dirs: search_in_dirs,
 
             finder,
@@ -208,6 +195,18 @@ pub struct Cli {
     #[arg(short = 'H', long)]
     hidden: bool,
 
+    /// When the search is finished, choose one file between the results
+    /// 
+    /// The selected file will be printed as if -ss was used
+    #[arg(long, conflicts_with_all(["simple", "multiselect", "first"]))]
+    select: bool,
+
+    /// When the search is finished, choose between the results
+    /// 
+    /// The selected files will be printed one after the other, separated by spaces
+    #[arg(long, conflicts_with_all(["simple", "select", "first"]))]
+    multiselect: bool,
+
     /// Only files that start with this will be found
     #[arg(short = 'S', long = "starts")]
     starts_with: Option<String>,
@@ -290,6 +289,8 @@ impl Cli {
             !search_in_dirs.is_empty(),
             cli.verbose,
             cli.hidden,
+            cli.select,
+            cli.multiselect,
             cli.simple,
             name,
             starts,
@@ -299,84 +300,4 @@ impl Cli {
             search_in_dirs,
         )
     }
-}
-
-const fn sorted<const N: usize>(mut array: [&'static str; N]) -> [&'static str; N] {
-    let mut i = 0;
-    while i < array.len() {
-        let mut j = 0;
-        while j < array.len() {
-            if lt(array[i], array[j]) {
-                let tmp = array[i];
-                array[i] = array[j];
-                array[j] = tmp;
-            }
-
-            j += 1;
-        }
-
-        i += 1;
-    }
-    array
-}
-
-const fn lt(lhs: &str, rhs: &str) -> bool {
-    let lhs = lhs.as_bytes();
-    let rhs = rhs.as_bytes();
-
-    let smallest = if lhs.len() < rhs.len() {
-        lhs.len()
-    } else {
-        rhs.len()
-    };
-
-    let mut i = 0;
-    while i < smallest {
-        let lhs = lhs[i];
-        let rhs = rhs[i];
-
-        if lhs < rhs {
-            return true;
-        }
-        if lhs > rhs {
-            return false;
-        }
-
-        i += 1;
-    }
-    lhs.len() == smallest
-}
-
-#[test]
-fn const_sorted() {
-    fn check<const N: usize>(mut array: [&'static str; N]) {
-        let sorted = sorted(array);
-        array.sort_unstable();
-        assert_eq!(sorted, array)
-    }
-
-    check(["b", "c", "a", "d"]);
-    check(["b", "c", "a", "d", "aa"]);
-    check([
-        "/proc",
-        "/root",
-        "/booty",
-        "/boot",
-        "/dev",
-        "/lib",
-        "/lib64",
-        "/lost+found",
-        "/run",
-        "/sbin",
-        "/sys",
-        "/tmp",
-        "/var/tmp",
-        "/var/lib",
-        "/var/log",
-        "/var/db",
-        "/var/cache",
-        "/etc/pacman.d",
-        "/etc/sudoers.d",
-        "/etc/audit",
-    ])
 }

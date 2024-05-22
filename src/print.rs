@@ -26,6 +26,13 @@ impl Search {
             profi::prof!(sort);
             rayon::join(|| co.par_sort(), || ex.par_sort());
         }
+        
+        if self.select {
+            return select((ex, co), stdout);
+        }
+        if self.multiselect {
+            return multiselect((ex, co), stdout);
+        }
 
         if self.output == Output::Normal {
             writeln!(stdout, "Contains:")?;
@@ -42,6 +49,29 @@ impl Search {
 
         Ok(())
     }
+}
+
+pub fn select((ex, co): Buffers, mut stdout: impl std::io::Write) -> std::io::Result<()> {
+    let v = ex.into_iter().chain(co).collect();
+    let selected = inquire::Select::new("Select a file:", v).prompt();
+    if let Ok(selected) = selected {
+        write!(stdout, "{selected}")?;
+    }
+    Ok(())
+}
+
+pub fn multiselect((ex, co): Buffers, mut stdout: impl std::io::Write) -> std::io::Result<()> {
+    let v = ex.into_iter().chain(co).collect();
+    let mut selected = inquire::MultiSelect::new("Select files:", v)
+        .prompt().unwrap_or_default().into_iter();
+    
+    if let Some(f) = selected.next() {
+        write!(stdout, "{f}")?;
+    }
+    for f in selected {
+        write!(stdout, " {f}")?;
+    }
+    Ok(())
 }
 
 #[profi::profile]
