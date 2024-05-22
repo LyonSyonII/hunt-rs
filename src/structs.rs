@@ -191,7 +191,7 @@ pub struct Cli {
 
     /// If enabled, it searches inside hidden directories
     ///
-    /// If not enabled, hidden directories (starting with '.') and "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp", "/var/lib", "/var/log", "/var/db", "/var/cache", "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit" will be skipped
+    /// If not enabled, hidden directories will be skipped
     #[arg(short = 'H', long)]
     hidden: bool,
 

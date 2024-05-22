@@ -18,69 +18,82 @@ Check the [Benchmarks](#benchmarks) for a comparison with other tools.
 ## Usage
     hunt [OPTIONS] [NAME] [SEARCH_IN_DIRS]...
 
-By default, searches are case-insensitive, unless \<NAME> contains an uppercase letter or the -C flag is set.
+By default, searches are case-insensitive, unless `[NAME]` contains an uppercase letter or the `--case-sensitive` flag is set.
 
 ### Options
-    -c, --canonicalize
-                   If enabled, all paths will be canonicalized.
-    -C, --case-sensitive
-                   If enabled, the search will be case-sensitive
+    -f, --first
+            Stop when first occurrence is found
 
-                   Note that case-sensitivity will be activated automatically when the search query
-                   contains an uppercase letter.
-
-    -e, --exact    Only search for exactly matching occurrences, any file only 
-                   containing the query will be skipped
+    -e, --exact
+            Only search for exactly matching occurrences, any file only containing the query will be skipped
             
-                    e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, 
-                    as its name contains more letters than the search
+            e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the search
 
-    -f, --first    Stop when first occurrence is found
+    -c, --canonicalize
+            If enabled, all paths will be canonicalized
 
-    -H, --hidden   If enabled, it searches inside hidden and ignored directories.
+    -C, --case-sensitive
+            If enabled, the search will be case-sensitive
+            
+            Note that case-sensitivity will be activated automatically when the search query contains an uppercase letter
 
-                   The list of ignored directories is:
-                   "/proc", "/root", "/boot", "/dev", "/lib", "/lib64", 
-                   "/lost+found", "/run", "/sbin", "/sys", "/tmp", "/var/tmp",
-                   "/var/lib", "/var/log", "/var/db", "/var/cache", 
-                   "/etc/pacman.d", "/etc/sudoers.d" and "/etc/audit"
+    -v, --verbose
+            Print verbose output
+            
+            It'll show all errors found: e.g. "Could not read /proc/81261/map_files"
+
+    -s, --simple...
+            Prints without formatting (without "Contains:" and "Exact:")
+            
+            -ss Output is not sorted
+
+    -H, --hidden
+            If enabled, it searches inside hidden directories
+            
+            If not enabled, hidden directories will be skipped
+
+    --select
+            When the search is finished, choose one file between the results
+            
+            The selected file will be printed as if -ss was used
+
+    --multiselect
+            When the search is finished, choose between the results
+            
+            The selected files will be printed one after the other, separated by spaces
+
+    -S, --starts <STARTS_WITH>
+            Only files that start with this will be found
+
+    -E, --ends <ENDS_WITH>
+            Only files that end with this will be found
+
+    -t, --type <FILE_TYPE>
+            Specifies the type of the file
+            
+            'f' -> file | 'd' -> directory
 
     -i, --ignore <IGNORE_DIRS>
-                   Search ignores this directories. The format is:
-                   -i dir1,dir2,dir3,... (without spaces)
+            Ignores this directories. The format is:
+            
+            -i dir1,dir2,dir3,...
 
-    -S, --starts <STARTS_WITH> 
-                   Only files that start with this will be found
+    -h, --help
+            Print help (see a summary with '-h')
+
+    -V, --version
+            Print version
         
-    -E, --ends   <ENDS_WITH>
-                   Only files that end with this will be found
+If the `--first` flag is set, the order in which the file will be searched is `[current_dir, home_dir, root]`.  
+If you're already in one of these directories, `current_dir` will be skipped.
 
-    -t, --type   <FILE_TYPE>
-                   Specifies the type of the file
-                   'f' -> file
-                   'd' -> directory
-
-    -v, --verbose  Print verbose output
-                   It'll show all errors found: e.g. "Could not read /proc/81261/map_files"
-    
-    -s, --simple   Prints without formatting (without "Contains:" and "Exact:")
-                   Useful for pairing it with other commands like xargs
-    
-    -ss            Same as -s, but without sorting the output
-
-
-    -h  --help     Print help information
-        
-If the --first flag is set, the order in which the file will be searched is [current_dir, home_dir, root].  
-If you're already in one of these directories, "current_dir" will be skipped.
-
-If the --hidden flag is **not** set, hidden files/directories will be skipped, as well as: /proc, /root, /boot, /dev, /lib, /lib64, /lost+found, /run, /sbin, /sys, /tmp, /var/tmp, /var/lib, /var/log, /var/db, /var/cache, /etc/pacman.d, /etc/sudoers.d and /etc/audit
+If the `--hidden` flag is **not** set, hidden files/directories will be skipped.
 
 ### Args
-    <NAME>  Name of the file/folder to search
+    [NAME]  Name of the file/folder to search
             By default, searches are case-insensitive, unless the query contains an uppercase letter.
     
-    <LIMIT_TO_DIRS>...
+    [SEARCH_IN_DIRS]...
             Directories where you want to search
             If provided, hunt will only search there
             
@@ -216,7 +229,7 @@ For the curious, it scored a time of 486.8 ms, only 1.32 times faster than Hunt.
 
 #### Hunt
 ```
-Benchmark 1: hunt -h SomeFile /
+Benchmark 1: hunt -H SomeFile /
   Time (mean ± σ):     633.6 ms ±  25.1 ms    [User: 2876.7 ms, System: 2507.5 ms]
   Range (min … max):   589.4 ms … 671.2 ms    10 runs
 ```
@@ -238,7 +251,7 @@ Benchmark 3: find / -name "*SomeFile*"
 
 #### Summary
 ```
-'hunt -h SomeFile /' ran
+'hunt -H SomeFile /' ran
   2.29 ± 0.09 times faster than 'fd -HI -c never SomeFile /'
   5.48 ± 0.31 times faster than 'find / -name "*SomeFile*"'
 ```
