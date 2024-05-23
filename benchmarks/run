@@ -81,4 +81,22 @@ sub bench {
          "$HUNT_PREV" \
          "$HUNT2_3"
    }
+   
+   /// Benchmarks different depths
+   cmd 5() {
+      $build;
+      D="HUNT_MAX_DEPTH"
+      HUNT="$hunt --hidden --ends .nix flake $HOME"
+      hyperfine --warmup 1 --ignore-failure \
+         "$D=0 $HUNT" \
+         "$D=1 $HUNT" \
+         "$D=10 $HUNT" \
+         "$D=100 $HUNT" \
+         "$D=200 $HUNT" \
+         "$D=300 $HUNT" \
+         "$D=400 $HUNT" \
+         "$D=500 $HUNT" \
+         "$D=1000 $HUNT" \
+         "$D=2000 $HUNT"
+   }
 }

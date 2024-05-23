@@ -15,12 +15,14 @@ impl Search {
         // If no limit, search current directory
         if !self.limit {
             let path = if self.canonicalize {
-                std::borrow::Cow::Owned(std::env::current_dir().expect("Could not read current directory"))
+                std::borrow::Cow::Owned(
+                    std::env::current_dir().expect("Could not read current directory"),
+                )
             } else {
                 std::borrow::Cow::Borrowed(std::path::Path::new("."))
             };
             return rayon::scope(|s| {
-                s.spawn(|_| search_dir(path, self, sender));
+                s.spawn(|_| search_dir(path, self, sender, 0));
                 receive_paths(receiver, self)
             });
         }
@@ -44,7 +46,7 @@ impl Search {
         rayon::scope(move |s| {
             for dir in dirs {
                 let sender = sender.clone();
-                s.spawn(move |_| search_dir(dir, self, sender));
+                s.spawn(move |_| search_dir(dir, self, sender, 0));
             }
             drop(sender);
             receive_paths(receiver, self)
@@ -53,7 +55,7 @@ impl Search {
 }
 
 #[profi::profile]
-fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
+fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: usize) {
     let path = path.as_ref();
     
     let read = {
@@ -80,7 +82,11 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
             }
             if let Some(path) = is_dir {
                 profi::prof!("search_dir::spawn_search_dir");
-                s.spawn(|_| search_dir(path, search, sender.clone()));
+                if depth > search.max_depth {
+                    search_dir(path, search, sender.clone(), depth);
+                    continue;
+                }
+                s.spawn(|_| search_dir(path, search, sender.clone(), depth + 1));
             }
         }
     });
@@ -248,7 +254,7 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
 #[inline(always)]
 pub(crate) fn is_hidden(path: &Path) -> bool {
     use std::os::unix::ffi::OsStrExt;
-    
+
     file_name(path).is_some_and(|name| name.as_bytes().first().copied() == Some(b'.'))
 }
 

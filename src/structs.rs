@@ -49,6 +49,8 @@ pub struct Search {
 
     /// Memchr Finder
     pub finder: memchr::memmem::Finder<'static>,
+    
+    pub max_depth: usize,
 }
 
 impl Search {
@@ -77,7 +79,12 @@ impl Search {
             _ => Output::SuperSimple,
         };
         let finder = memchr::memmem::Finder::new(name.as_bytes()).into_owned();
-        
+        let max_depth = std::env::var("HUNT_MAX_DEPTH")
+            .map(|v| v.parse().ok())
+            .ok()
+            .flatten()
+            .unwrap_or(usize::MAX);
+
         Search {
             first,
             exact,
@@ -97,6 +104,7 @@ impl Search {
             dirs: search_in_dirs,
 
             finder,
+            max_depth,
         }
     }
 }
