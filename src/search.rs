@@ -57,7 +57,7 @@ impl Search {
 fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
     let path = path.as_ref();
     
-    let read ={
+    let read = {
         profi::prof!("search_dir::read_dir");
         let Ok(read) = std::fs::read_dir(path) else {
             if search.verbose {
@@ -104,11 +104,11 @@ fn is_result(
             return None;
         }
     }
-    
+
     let is_hidden = || {
+        profi::prof!("is_result::is_hidden");
         #[cfg(unix)]
         {
-            profi::prof!("is_result::is_hidden");
             is_hidden(&path)
         }
         #[cfg(windows)]
@@ -131,16 +131,17 @@ fn is_result(
     };
     let ftype = {
         profi::prof!("is_result::get_ftype");
+
         match search.ftype {
+            FileType::All => true,
             FileType::Dir => is_dir,
             FileType::File => !is_dir,
-            FileType::All => true,
         }
     };
-    
+
     let Some(fname) = file_name(&path) else {
         profi::prof!("is_result::return_invalid_file_name");
-        return Some((None, is_dir.then_some(path.into_boxed_path())))
+        return Some((None, is_dir.then_some(path.into_boxed_path())));
     };
     let fname = {
         profi::prof!("is_result::fname.to_string_lossy");
@@ -162,7 +163,7 @@ fn is_result(
         profi::prof!("is_result::ends_with");
         search.ends.is_empty() || sname.ends_with(&search.ends)
     };
-    
+
     profi::prof!("is_result::substring_checks");
     if ftype && starts() && ends() {
         let (equals, contains) = {
@@ -246,10 +247,10 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
 /// On Unix, this implements a more optimized check.
 #[cfg(unix)]
 #[inline(always)]
-pub(crate) fn is_hidden(path: impl AsRef<Path>) -> bool {
+pub(crate) fn is_hidden(path: &Path) -> bool {
     use std::os::unix::ffi::OsStrExt;
-
-    file_name(path.as_ref()).is_some_and(|name| name.as_bytes().first() == Some(&b'.'))
+    
+    file_name(path).is_some_and(|name| name.as_bytes().first().copied() == Some(b'.'))
 }
 
 /// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
@@ -290,17 +291,10 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
 #[profi::profile]
 #[cfg(unix)]
 #[inline(always)]
-pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&std::ffi::OsStr> {
+pub(crate) fn file_name(path: &Path) -> Option<&std::ffi::OsStr> {
     use std::os::unix::ffi::OsStrExt;
 
-    let path = path.as_ref().as_os_str().as_bytes();
-    if path.is_empty()
-        || path.len() == 1 && path[0] == b'.'
-        || path.last() == Some(&b'.')
-        || path.len() >= 2 && path[path.len() - 2..] == b".."[..]
-    {
-        return None;
-    }
+    let path = path.as_os_str().as_bytes();
     let last_slash = memchr::memrchr(b'/', path).map(|i| i + 1).unwrap_or(0);
     Some(std::ffi::OsStr::from_bytes(&path[last_slash..]))
 }
