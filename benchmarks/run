@@ -10,9 +10,10 @@ cmd profile() {
 }
 
 sub bench {
-   const build = cargo build --release
+   const build = cp ../target/release/hunt ./hunt-prev && cargo build --release
    const hunt = ../target/release/hunt
    // previous hunt version
+   const prev = ./hunt-prev
    const 2_3 = ./hunt-2.3.0
    const fd = fd --unrestricted --color=never
    
@@ -21,6 +22,7 @@ sub bench {
       $build;
       CMD="--hidden --first --exact SomeFile $HOME"
       HUNT="$hunt $CMD";
+      HUNT_PREV="$prev $CMD";
       HUNT2_3="$2_3 $CMD";
 
       FD="$fd --max-results=1 SomeFile $HOME";
@@ -28,6 +30,7 @@ sub bench {
       hyperfine -N --warmup 100 --ignore-failure \
          "$FD" \
          "$HUNT" \
+         "$HUNT_PREV" \
          "$HUNT2_3"
          # "$FIND"
    }
@@ -37,13 +40,15 @@ sub bench {
       $build;
       CMD="--hidden SomeFile $HOME";
       HUNT="$hunt $CMD";
+      HUNT_PREV="$prev $CMD";
       HUNT2_3="$2_3 $CMD";
       FD="$fd SomeFile $HOME";
       # FIND="find $HOME -name SomeFile -print";
       hyperfine -N --warmup 1 --ignore-failure  \
-         "$FD" \
          "$HUNT" \
          "$HUNT2_3"
+         # "$FD" \
+         # "$HUNT_PREV" \
          # "$FIND"
    }
 
@@ -52,11 +57,13 @@ sub bench {
       $build;
       CMD="--hidden SomeFile /";
       HUNT="$hunt $CMD";
+      HUNT_PREV="$prev $CMD";
       HUNT2_3="$2_3 $CMD";
       FD="$fd SomeFile /";
       hyperfine -N --warmup 1 --ignore-failure \
          "$FD" \
          "$HUNT" \
+         "$HUNT_PREV" \
          "$HUNT2_3"
    }
 
@@ -65,11 +72,13 @@ sub bench {
       $build;
       CMD="--hidden -ss $HOME";
       HUNT="$hunt $CMD";
+      HUNT_PREV="$prev $CMD";
       HUNT2_3="$2_3 $CMD";
       FD="$fd . $HOME";
       hyperfine -N --warmup 1 --ignore-failure \
          "$FD" \
          "$HUNT" \
+         "$HUNT_PREV" \
          "$HUNT2_3"
    }
 }

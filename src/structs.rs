@@ -108,6 +108,7 @@ pub enum Output {
     SuperSimple,
 }
 
+#[derive(PartialEq, Clone, Copy)]
 pub enum FileType {
     Dir,
     File,
@@ -196,13 +197,13 @@ pub struct Cli {
     hidden: bool,
 
     /// When the search is finished, choose one file between the results
-    /// 
+    ///
     /// The selected file will be printed as if -ss was used
     #[arg(long, conflicts_with_all(["simple", "multiselect", "first"]))]
     select: bool,
 
     /// When the search is finished, choose between the results
-    /// 
+    ///
     /// The selected files will be printed one after the other, separated by spaces
     #[arg(long, conflicts_with_all(["simple", "select", "first"]))]
     multiselect: bool,

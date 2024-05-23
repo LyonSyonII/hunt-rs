@@ -20,7 +20,7 @@ impl Search {
                 std::path::Path::new(".").to_owned()
             };
             return rayon::scope(|s| {
-                s.spawn(|_| search_dir(path, self, sender));
+                s.spawn(|_| search_dir(path.into_boxed_path(), self, sender));
                 receive_paths(receiver, self)
             });
         }
@@ -30,7 +30,6 @@ impl Search {
                 eprintln!("Error: The {:?} directory does not exist", path);
                 std::process::exit(1)
             }
-
             if self.canonicalize {
                 std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
                     eprintln!("Error: The {:?} directory does not exist", path);

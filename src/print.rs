@@ -63,8 +63,10 @@ pub fn select((ex, co): Buffers, mut stdout: impl std::io::Write) -> std::io::Re
 pub fn multiselect((ex, co): Buffers, mut stdout: impl std::io::Write) -> std::io::Result<()> {
     let v = ex.into_iter().chain(co).collect();
     let mut selected = inquire::MultiSelect::new("Select files:", v)
-        .prompt().unwrap_or_default().into_iter();
-    
+        .prompt()
+        .unwrap_or_default()
+        .into_iter();
+
     if let Some(f) = selected.next() {
         write!(stdout, "{f}")?;
     }
