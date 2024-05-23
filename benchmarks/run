@@ -10,12 +10,20 @@ cmd profile() {
 }
 
 sub bench {
-   const build = cp ../target/release/hunt ./hunt-prev && cargo build --release
-   const hunt = ../target/release/hunt
-   // previous hunt version
-   const prev = ./hunt-prev
-   const 2_3 = ./hunt-2.3.0
-   const fd = fd --unrestricted --color=never
+   const build = "cp ../target/release/hunt ./hunt-prev; cargo build --release"
+   const hunt  = "../target/release/hunt"
+   const prev  = "./hunt-prev" // previous hunt version
+   const 2_3   = "./hunt-2.3.0"
+   const fd    = "fd --unrestricted --color=never"
+
+   cmd all() {
+      run bench 1;
+      run bench 2;
+      run bench 3;
+      run bench 4;
+      run bench 5;
+      run bench 6;
+   }
    
    /// Search one file in ~/
    cmd 1() {
@@ -24,15 +32,15 @@ sub bench {
       HUNT="$hunt $CMD";
       HUNT_PREV="$prev $CMD";
       HUNT2_3="$2_3 $CMD";
-
       FD="$fd --max-results=1 SomeFile $HOME";
-      # FIND="find $HOME -name SomeFile -print -quit";
-      hyperfine -N --warmup 100 --ignore-failure \
-         "$FD" \
+      FIND="find $HOME -name SomeFile -print -quit";
+
+      hyperfine -N --warmup 1 --ignore-failure \
          "$HUNT" \
-         "$HUNT_PREV" \
-         "$HUNT2_3"
-         # "$FIND"
+         "$HUNT2_3" \
+         "$FD" \
+         "$FIND";
+         # "$HUNT_PREV" \
    }
 
    /// Search multiple files in ~/
@@ -40,16 +48,17 @@ sub bench {
       $build;
       CMD="--hidden SomeFile $HOME";
       HUNT="$hunt $CMD";
-      HUNT_PREV="$prev $CMD";
       HUNT2_3="$2_3 $CMD";
+      HUNT_PREV="$prev $CMD";
       FD="$fd SomeFile $HOME";
-      # FIND="find $HOME -name SomeFile -print";
+      FIND="find $HOME -name SomeFile -print";
+
       hyperfine -N --warmup 1 --ignore-failure  \
          "$HUNT" \
-         "$HUNT2_3"
-         # "$FD" \
+         "$HUNT2_3" \
+         "$FD" \
+         "$FIND" \
          # "$HUNT_PREV" \
-         # "$FIND"
    }
 
    /// Search multiple files in /
@@ -57,36 +66,39 @@ sub bench {
       $build;
       CMD="--hidden SomeFile /";
       HUNT="$hunt $CMD";
-      HUNT_PREV="$prev $CMD";
       HUNT2_3="$2_3 $CMD";
+      HUNT_PREV="$prev $CMD";
       FD="$fd SomeFile /";
+
       hyperfine -N --warmup 1 --ignore-failure \
-         "$FD" \
          "$HUNT" \
-         "$HUNT_PREV" \
-         "$HUNT2_3"
+         "$HUNT2_3" \
+         "$FD" \
+         # "$HUNT_PREV" \
    }
 
    /// Search all files in ~/
    cmd 4() {
       $build;
+      FD="$fd . $HOME";
       CMD="--hidden -ss $HOME";
       HUNT="$hunt $CMD";
-      HUNT_PREV="$prev $CMD";
       HUNT2_3="$2_3 $CMD";
-      FD="$fd . $HOME";
+      HUNT_PREV="$prev $CMD";
+
       hyperfine -N --warmup 1 --ignore-failure \
-         "$FD" \
          "$HUNT" \
-         "$HUNT_PREV" \
-         "$HUNT2_3"
+         "$HUNT2_3" \
+         "$FD" \
+         # "$HUNT_PREV" \
    }
    
-   /// Benchmarks different depths
+   /// Different task depths
    cmd 5() {
       $build;
       D="HUNT_MAX_DEPTH"
       HUNT="$hunt --hidden --ends .nix flake $HOME"
+      
       hyperfine --warmup 1 --ignore-failure \
          "$D=0 $HUNT" \
          "$D=1 $HUNT" \
@@ -98,5 +110,23 @@ sub bench {
          "$D=500 $HUNT" \
          "$D=1000 $HUNT" \
          "$D=2000 $HUNT"
+   }
+
+   /// Startup time (empty directory)
+   cmd 6() {
+      $build;
+      mkdir empty;
+      HUNT="$hunt";
+      HUNT2_3="$2_3";
+      FD="fd";
+      FIND="find $HOME -name SomeFile -print";
+
+      hyperfine -N --ignore-failure \
+         "$HUNT empty" \
+         "$HUNT2_3 empty" \
+         "$FD empty" \
+         "$FIND empty";
+
+      rmdir empty;
    }
 }
