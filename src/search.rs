@@ -15,12 +15,12 @@ impl Search {
         // If no limit, search current directory
         if !self.limit {
             let path = if self.canonicalize {
-                std::env::current_dir().expect("Could not read current directory")
+                std::borrow::Cow::Owned(std::env::current_dir().expect("Could not read current directory"))
             } else {
-                std::path::Path::new(".").to_owned()
+                std::borrow::Cow::Borrowed(std::path::Path::new("."))
             };
             return rayon::scope(|s| {
-                s.spawn(|_| search_dir(path.into_boxed_path(), self, sender));
+                s.spawn(|_| search_dir(path, self, sender));
                 receive_paths(receiver, self)
             });
         }
@@ -31,12 +31,12 @@ impl Search {
                 std::process::exit(1)
             }
             if self.canonicalize {
-                std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
+                std::borrow::Cow::<Path>::Owned(path.canonicalize().unwrap_or_else(|_| {
                     eprintln!("Error: The {:?} directory does not exist", path);
                     std::process::exit(1)
                 }))
             } else {
-                std::borrow::Cow::Borrowed(path)
+                std::borrow::Cow::<Path>::Borrowed(path)
             }
         });
 
@@ -44,7 +44,7 @@ impl Search {
         rayon::scope(move |s| {
             for dir in dirs {
                 let sender = sender.clone();
-                s.spawn(move |_| search_dir(dir.as_ref(), self, sender));
+                s.spawn(move |_| search_dir(dir, self, sender));
             }
             drop(sender);
             receive_paths(receiver, self)
