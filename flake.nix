@@ -19,6 +19,8 @@
           mold
           rust-analyzer-nightly
           fd
+          
+          cargo-msrv
 
           fenix.complete.rustc
           fenix.complete.cargo
@@ -30,7 +32,9 @@
           fenix.complete.llvm-tools-preview
         ];
         RUST_SRC_PATH = "${pkgs.fenix.complete.rust-src}/lib/rustlib/src/rust/library";
-        RUSTFLAGS="-Zcodegen-backend=llvm";
+        RUSTC_WRAPPER="sccache";
+        RUSTFLAGS="-Zcodegen-backend=llvm -Zthreads=12 -Ctarget-cpu=native -Clink-arg=-fuse-ld=mold";
+        MSRVFLAGS="-Clink-arg=-fuse-ld=mold"; # RUSTFLAGS=$MSRVFLAGS cargo msrv
       };
     });
 }
