@@ -9,6 +9,7 @@ license = "MIT"
 version = "2.4.0"
 authors = ["Liam G <liam.garriga@tutanota.com>"]
 edition = "2021"
+rust-version = "1.74.1"
 
 [package.metadata.wix]
 upgrade-guid = "93301563-2D91-4224-B838-C60D235011A0"
