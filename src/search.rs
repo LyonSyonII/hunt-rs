@@ -15,12 +15,14 @@ impl Search {
         // If no limit, search current directory
         if !self.limit {
             let path = if self.canonicalize {
-                std::env::current_dir().expect("Could not read current directory")
+                std::borrow::Cow::Owned(
+                    std::env::current_dir().expect("Could not read current directory"),
+                )
             } else {
-                std::path::Path::new(".").to_owned()
+                std::borrow::Cow::Borrowed(std::path::Path::new("."))
             };
             return rayon::scope(|s| {
-                s.spawn(|_| search_dir(path, self, sender));
+                s.spawn(|_| search_dir(path, self, sender, 0));
                 receive_paths(receiver, self)
             });
         }
@@ -30,14 +32,13 @@ impl Search {
                 eprintln!("Error: The {:?} directory does not exist", path);
                 std::process::exit(1)
             }
-
             if self.canonicalize {
-                std::borrow::Cow::Owned(path.canonicalize().unwrap_or_else(|_| {
+                std::borrow::Cow::<Path>::Owned(path.canonicalize().unwrap_or_else(|_| {
                     eprintln!("Error: The {:?} directory does not exist", path);
                     std::process::exit(1)
                 }))
             } else {
-                std::borrow::Cow::Borrowed(path)
+                std::borrow::Cow::<Path>::Borrowed(path)
             }
         });
 
@@ -45,7 +46,7 @@ impl Search {
         rayon::scope(move |s| {
             for dir in dirs {
                 let sender = sender.clone();
-                s.spawn(move |_| search_dir(dir.as_ref(), self, sender));
+                s.spawn(move |_| search_dir(dir, self, sender, 0));
             }
             drop(sender);
             receive_paths(receiver, self)
@@ -54,10 +55,10 @@ impl Search {
 }
 
 #[profi::profile]
-fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
+fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: usize) {
     let path = path.as_ref();
     
-    let read ={
+    let read = {
         profi::prof!("search_dir::read_dir");
         let Ok(read) = std::fs::read_dir(path) else {
             if search.verbose {
@@ -81,7 +82,11 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender) {
             }
             if let Some(path) = is_dir {
                 profi::prof!("search_dir::spawn_search_dir");
-                s.spawn(|_| search_dir(path, search, sender.clone()));
+                if depth > search.max_depth {
+                    search_dir(path, search, sender.clone(), depth);
+                    continue;
+                }
+                s.spawn(|_| search_dir(path, search, sender.clone(), depth + 1));
             }
         }
     });
@@ -98,17 +103,25 @@ fn is_result(
         entry.path()
     };
 
-    {
+    if !search.explicit_ignore.is_empty() {
         profi::prof!("is_result::explicit_ignore");
-        if search.explicit_ignore.binary_search(&path).is_ok() {
+        let canonicalized = path.canonicalize().ok()?;
+        let ignore = |entry: &std::path::PathBuf| {
+            if entry.is_absolute() {
+                entry == &canonicalized
+            } else {
+                entry.file_name() == path.file_name()
+            }
+        };
+        if search.explicit_ignore.iter().any(ignore) {
             return None;
         }
     }
-    
+
     let is_hidden = || {
+        profi::prof!("is_result::is_hidden");
         #[cfg(unix)]
         {
-            profi::prof!("is_result::is_hidden");
             is_hidden(&path)
         }
         #[cfg(windows)]
@@ -131,16 +144,17 @@ fn is_result(
     };
     let ftype = {
         profi::prof!("is_result::get_ftype");
+
         match search.ftype {
+            FileType::All => true,
             FileType::Dir => is_dir,
             FileType::File => !is_dir,
-            FileType::All => true,
         }
     };
-    
+
     let Some(fname) = file_name(&path) else {
         profi::prof!("is_result::return_invalid_file_name");
-        return Some((None, is_dir.then_some(path.into_boxed_path())))
+        return Some((None, is_dir.then_some(path.into_boxed_path())));
     };
     let fname = {
         profi::prof!("is_result::fname.to_string_lossy");
@@ -162,7 +176,7 @@ fn is_result(
         profi::prof!("is_result::ends_with");
         search.ends.is_empty() || sname.ends_with(&search.ends)
     };
-    
+
     profi::prof!("is_result::substring_checks");
     if ftype && starts() && ends() {
         let (equals, contains) = {
@@ -246,10 +260,10 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
 /// On Unix, this implements a more optimized check.
 #[cfg(unix)]
 #[inline(always)]
-pub(crate) fn is_hidden(path: impl AsRef<Path>) -> bool {
+pub(crate) fn is_hidden(path: &Path) -> bool {
     use std::os::unix::ffi::OsStrExt;
 
-    file_name(path.as_ref()).is_some_and(|name| name.as_bytes().first() == Some(&b'.'))
+    file_name(path).is_some_and(|name| name.as_bytes().first().copied() == Some(b'.'))
 }
 
 /// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs
@@ -290,17 +304,10 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
 #[profi::profile]
 #[cfg(unix)]
 #[inline(always)]
-pub(crate) fn file_name<P: AsRef<Path> + ?Sized>(path: &P) -> Option<&std::ffi::OsStr> {
+pub(crate) fn file_name(path: &Path) -> Option<&std::ffi::OsStr> {
     use std::os::unix::ffi::OsStrExt;
 
-    let path = path.as_ref().as_os_str().as_bytes();
-    if path.is_empty()
-        || path.len() == 1 && path[0] == b'.'
-        || path.last() == Some(&b'.')
-        || path.len() >= 2 && path[path.len() - 2..] == b".."[..]
-    {
-        return None;
-    }
+    let path = path.as_os_str().as_bytes();
     let last_slash = memchr::memrchr(b'/', path).map(|i| i + 1).unwrap_or(0);
     Some(std::ffi::OsStr::from_bytes(&path[last_slash..]))
 }

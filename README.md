@@ -161,6 +161,7 @@ Seeing how `find` did not perform any parallelism at all, I decided to make a mu
 Hunt is multithreaded, so it's a lot faster than `find`, and more reliable than `locate` (recent files cannot be found with it).
 
 ## Installation
+[![Packaging status](https://repology.org/badge/vertical-allrepos/hunt-find.svg)](https://repology.org/project/hunt-find/versions)
 ### Precompiled binaries
 Download the latest binary from [releases](https://github.com/lyonsyonii/hunt-rs/releases).
 

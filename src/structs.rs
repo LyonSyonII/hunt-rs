@@ -49,6 +49,8 @@ pub struct Search {
 
     /// Memchr Finder
     pub finder: memchr::memmem::Finder<'static>,
+    
+    pub max_depth: usize,
 }
 
 impl Search {
@@ -77,7 +79,12 @@ impl Search {
             _ => Output::SuperSimple,
         };
         let finder = memchr::memmem::Finder::new(name.as_bytes()).into_owned();
-        
+        let max_depth = std::env::var("HUNT_MAX_DEPTH")
+            .map(|v| v.parse().ok())
+            .ok()
+            .flatten()
+            .unwrap_or(usize::MAX);
+
         Search {
             first,
             exact,
@@ -97,6 +104,7 @@ impl Search {
             dirs: search_in_dirs,
 
             finder,
+            max_depth,
         }
     }
 }
@@ -108,6 +116,7 @@ pub enum Output {
     SuperSimple,
 }
 
+#[derive(PartialEq, Clone, Copy)]
 pub enum FileType {
     Dir,
     File,
@@ -196,13 +205,13 @@ pub struct Cli {
     hidden: bool,
 
     /// When the search is finished, choose one file between the results
-    /// 
+    ///
     /// The selected file will be printed as if -ss was used
     #[arg(long, conflicts_with_all(["simple", "multiselect", "first"]))]
     select: bool,
 
     /// When the search is finished, choose between the results
-    /// 
+    ///
     /// The selected files will be printed one after the other, separated by spaces
     #[arg(long, conflicts_with_all(["simple", "select", "first"]))]
     multiselect: bool,
@@ -221,11 +230,16 @@ pub struct Cli {
     #[arg(short = 't', long = "type")]
     file_type: Option<String>,
 
-    /// Ignores this directories. The format is:
-    ///
-    /// -i dir1,dir2,dir3,...
-    #[arg(short = 'i', long = "ignore", value_delimiter = ',')]
-    ignore_dirs: Option<Vec<PathBuf>>,
+    /// Ignores the provided files/directories. 
+    /// The format is: '-i dir1,dir2,dir3,...'
+    /// 
+    /// Which files will be ignored depends on how they are written:  
+    /// - If the path is absolute or relative, only that file will be ignored
+    ///   Examples: '/home/user/Downloads' or './Downloads'
+    /// - If only a name is provided, ALL matching files/directories will be ignored
+    ///   Examples: 'file.txt' or 'node_modules'
+    #[arg(short = 'i', long = "ignore", value_delimiter = ',', verbatim_doc_comment)]
+    ignore: Option<Vec<PathBuf>>,
 
     /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
     name: Option<String>,
@@ -272,15 +286,17 @@ impl Cli {
             ends.make_ascii_lowercase();
         }
 
-        let mut ignore_dirs = cli.ignore_dirs.unwrap_or_default();
+        let mut ignore_dirs = cli.ignore.unwrap_or_default();
+        // canonicalize non global paths
+        // ./Cargo.toml => canonicalized
+        // /home/user//Cargo.toml
         for p in ignore_dirs.iter_mut() {
-            if !cli.canonicalize {
-                *p = std::path::Path::new("./").join(&p)
-            } else if let Ok(c) = p.canonicalize() {
+            if p.is_absolute() || p.starts_with("./") {
+                let Ok(c) = p.canonicalize() else { continue };
                 *p = c;
             }
         }
-
+        
         Search::new(
             cli.first,
             cli.exact,
