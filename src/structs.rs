@@ -230,11 +230,16 @@ pub struct Cli {
     #[arg(short = 't', long = "type")]
     file_type: Option<String>,
 
-    /// Ignores this directories. The format is:
-    ///
-    /// -i dir1,dir2,dir3,...
-    #[arg(short = 'i', long = "ignore", value_delimiter = ',')]
-    ignore_dirs: Option<Vec<PathBuf>>,
+    /// Ignores the provided files/directories. 
+    /// The format is: '-i dir1,dir2,dir3,...'
+    /// 
+    /// Which files will be ignored depends on how they are written:  
+    /// - If the path is absolute or relative, only that file will be ignored
+    ///   Examples: '/home/user/Downloads' or './Downloads'
+    /// - If only a name is provided, ALL matching files/directories will be ignored
+    ///   Examples: 'file.txt' or 'node_modules'
+    #[arg(short = 'i', long = "ignore", value_delimiter = ',', verbatim_doc_comment)]
+    ignore: Option<Vec<PathBuf>>,
 
     /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
     name: Option<String>,
@@ -281,15 +286,17 @@ impl Cli {
             ends.make_ascii_lowercase();
         }
 
-        let mut ignore_dirs = cli.ignore_dirs.unwrap_or_default();
+        let mut ignore_dirs = cli.ignore.unwrap_or_default();
+        // canonicalize non global paths
+        // ./Cargo.toml => canonicalized
+        // /home/user//Cargo.toml
         for p in ignore_dirs.iter_mut() {
-            if !cli.canonicalize {
-                *p = std::path::Path::new("./").join(&p)
-            } else if let Ok(c) = p.canonicalize() {
+            if p.is_absolute() || p.starts_with("./") {
+                let Ok(c) = p.canonicalize() else { continue };
                 *p = c;
             }
         }
-
+        
         Search::new(
             cli.first,
             cli.exact,

@@ -103,9 +103,17 @@ fn is_result(
         entry.path()
     };
 
-    {
+    if !search.explicit_ignore.is_empty() {
         profi::prof!("is_result::explicit_ignore");
-        if search.explicit_ignore.binary_search(&path).is_ok() {
+        let canonicalized = path.canonicalize().ok()?;
+        let ignore = |entry: &std::path::PathBuf| {
+            if entry.is_absolute() {
+                entry == &canonicalized
+            } else {
+                entry.file_name() == path.file_name()
+            }
+        };
+        if search.explicit_ignore.iter().any(ignore) {
             return None;
         }
     }

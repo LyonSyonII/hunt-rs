@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## \[3.0.0]
+
+### 🚀 Features - Breaking Changes
+- `--ignore` can now skip files/directories with a specific name, instead of just paths.
+  - Breaking change, semantics are not the same as previous version, though it shouldn't affect much.
+  - Addresses [#12](https://github.com/LyonSyonII/hunt-rs/issues/12).
+  - 
+### 🐛 Bug Fixes
+- `--ignore` now has the exact same behaviour regardless of the `--canonicalize` flag.
+
 ## \[2.4.0]
 
 ### 🚀 Features
