@@ -1,6 +1,6 @@
 use crate::{
-    searchresult::SearchResult,
-    structs::{Buffers, FileType, Output, Search},
+    searchresult::{SearchResult, SearchResults},
+    structs::{Buffers, FileType, Output, Search}, threadpool::Pool,
 };
 use std::path::Path;
 
@@ -9,8 +9,8 @@ type Sender = crossbeam_channel::Sender<SearchResult>;
 
 impl Search {
     #[profi::profile]
-    pub fn search(&self) -> Buffers {
-        let (sender, receiver) = crossbeam_channel::bounded(8);
+    pub fn search(&self) -> SearchResults {
+        let pool = Pool::new(self.clone());
 
         // If no limit, search current directory
         if !self.limit {
@@ -21,10 +21,8 @@ impl Search {
             } else {
                 std::borrow::Cow::Borrowed(std::path::Path::new("."))
             };
-            return rayon::scope(|s| {
-                s.spawn(|_| search_dir(path, self, sender, 0));
-                receive_paths(receiver, self)
-            });
+            pool.send(path);
+            return pool.join();
         }
         // Check if paths are valid and canonicalize if necessary
         let dirs = self.dirs.iter().map(|path| {
@@ -43,57 +41,15 @@ impl Search {
         });
 
         // Search in directories
-        rayon::scope(move |s| {
-            for dir in dirs {
-                let sender = sender.clone();
-                s.spawn(move |_| search_dir(dir, self, sender, 0));
-            }
-            drop(sender);
-            receive_paths(receiver, self)
-        })
+        for dir in dirs {
+            pool.send(dir);
+        }
+        pool.join()
     }
 }
 
 #[profi::profile]
-fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: usize) {
-    let path = path.as_ref();
-    
-    let read = {
-        profi::prof!("search_dir::read_dir");
-        let Ok(read) = std::fs::read_dir(path) else {
-            if search.verbose {
-                eprintln!("Could not read {:?}", path);
-            }
-            return;
-        };
-        read
-    };
-
-    rayon::scope(|s| {
-        profi::prof!("search_dir::inspect_entries");
-        for entry in read.flatten() {
-            profi::prof!("search_dir::inspect_entry");
-            let Some((result, is_dir)) = is_result(entry, search) else {
-                continue;
-            };
-            if let Some(result) = result {
-                profi::prof!("search_dir::send_result");
-                sender.send(result).unwrap();
-            }
-            if let Some(path) = is_dir {
-                profi::prof!("search_dir::spawn_search_dir");
-                if depth > search.max_depth {
-                    search_dir(path, search, sender.clone(), depth);
-                    continue;
-                }
-                s.spawn(|_| search_dir(path, search, sender.clone(), depth + 1));
-            }
-        }
-    });
-}
-
-#[profi::profile]
-fn is_result(
+pub fn is_result(
     entry: std::fs::DirEntry,
     search: &Search,
 ) -> Option<(Option<SearchResult>, Option<Box<Path>>)> {

@@ -9,3 +9,5 @@ benchmarks/*
 .direnv/
 
 !benchmarks/run
+
+out

@@ -1,10 +1,9 @@
-use crate::structs::{Buffers, Output, Search};
-use rayon::prelude::ParallelSliceMut;
+use crate::{searchresult::SearchResults, structs::{Buffers, Output, Search}};
 use std::io::Write;
 
 impl Search {
     #[profi::profile]
-    pub fn print_results(self, buffers: Buffers) -> std::io::Result<()> {
+    pub fn print_results(self, SearchResults { exact: mut ex, contains: mut co }: SearchResults) -> std::io::Result<()> {
         profi::prof!(print_results);
 
         if self.output == Output::SuperSimple {
@@ -14,7 +13,6 @@ impl Search {
         let stdout = std::io::stdout();
         let mut stdout = std::io::BufWriter::new(stdout.lock());
 
-        let (mut ex, mut co) = buffers;
         if ex.is_empty() && co.is_empty() {
             if self.output == Output::Normal {
                 writeln!(stdout, "File not found")?;
@@ -24,9 +22,11 @@ impl Search {
 
         {
             profi::prof!(sort);
-            rayon::join(|| co.par_sort(), || ex.par_sort());
+            co.sort_unstable();
+            ex.sort_unstable();
+            // rayon::join(|| co.par_sort(), || ex.par_sort());
         }
-        
+
         if self.select {
             return select((ex, co), stdout);
         }

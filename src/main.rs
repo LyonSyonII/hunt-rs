@@ -2,6 +2,7 @@ mod print;
 mod search;
 mod searchresult;
 mod structs;
+mod threadpool;
 
 #[cfg(not(any(test, miri)))]
 #[global_allocator]

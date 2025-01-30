@@ -310,7 +310,6 @@ dependencies = [
  "memchr",
  "mimalloc",
  "profi",
- "rayon",
  "rustix",
  "thin_str",
  "winapi-util",

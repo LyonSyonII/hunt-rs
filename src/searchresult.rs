@@ -1,8 +1,8 @@
-pub type Path = thin_str::ThinStr;
+use thin_str::ThinStr;
 
 pub enum SearchResult {
-    Contains(Path),
-    Exact(Path),
+    Contains(ThinStr),
+    Exact(ThinStr),
 }
 
 impl SearchResult {
@@ -20,5 +20,38 @@ impl std::fmt::Display for SearchResult {
             Self::Contains(path) => f.write_str(path),
             Self::Exact(path) => f.write_str(path),
         }
+    }
+}
+
+pub struct SearchResults {
+    pub exact: Vec<ThinStr>,
+    pub contains: Vec<ThinStr>,
+}
+
+impl SearchResults {
+    pub fn new() -> Self {
+        Self {
+            exact: Vec::new(),
+            contains: Vec::new(),
+        }
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            exact: Vec::with_capacity(capacity),
+            contains: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn push(&mut self, result: SearchResult) {
+        match result {
+            SearchResult::Contains(r) => self.contains.push(r),
+            SearchResult::Exact(r) => self.exact.push(r),
+        }
+    }
+
+    pub fn merge(&mut self, other: SearchResults) {
+        self.exact.extend(other.exact);
+        self.contains.extend(other.contains);
     }
 }
