@@ -116,53 +116,55 @@ pub fn is_result(
         profi::prof!("is_result::fname.to_string_lossy");
         fname.to_string_lossy()
     };
-    let sname: std::borrow::Cow<str> = if search.case_sensitive {
+    let sname = if search.case_sensitive {
         profi::prof!("is_result::sname");
-        fname.as_ref().into()
+        fname.as_ref()
     } else {
         profi::prof!("is_result::to_ascii_lowercase");
-        fname.to_ascii_lowercase().into()
+        &fname.to_ascii_lowercase()
     };
 
     let starts = || {
         profi::prof!("is_result::starts_with");
-        search.starts.is_empty() || sname.starts_with(&search.starts)
+        /* search.starts.is_empty() ||  */sname.starts_with(&search.starts)
     };
     let ends = || {
         profi::prof!("is_result::ends_with");
-        search.ends.is_empty() || sname.ends_with(&search.ends)
+        /* search.ends.is_empty() ||  */sname.ends_with(&search.ends)
     };
-
-    profi::prof!("is_result::substring_checks");
-    if ftype && starts() && ends() {
-        let (equals, contains) = {
-            profi::prof!("is_result::contains");
-            if search.finder.find(sname.as_bytes()).is_none() {
-                (false, false)
-            } else {
-                (sname.len() == search.name.len(), true)
-            }
-        };
-        // If file name is equal to search name, write it to the "Exact" buffer
-        if equals {
-            profi::prof!("is_result::return_exact");
-            return Some((
-                Some(SearchResult::exact(path.to_string_lossy().into_owned())),
-                is_dir.then_some(path.into_boxed_path()),
-            ));
-        }
-        // If file name contains the search name, write it to the "Contains" buffer
-        else if !search.exact && contains {
-            let s = if search.output == Output::Normal {
-                crate::print::format_with_highlight(&fname, &sname, &path, search)
-            } else {
-                path.to_string_lossy().into_owned()
+    
+    {
+        profi::prof!("is_result::substring_checks");
+        if ftype && starts() && ends() {
+            let (equals, contains) = {
+                profi::prof!("is_result::contains");
+                if search.finder.find(sname.as_bytes()).is_none() {
+                    (false, false)
+                } else {
+                    (sname.len() == search.name.len(), true)
+                }
             };
-            profi::prof!("is_result::return_contains");
-            return Some((
-                Some(SearchResult::contains(s)),
-                is_dir.then_some(path.into_boxed_path()),
-            ));
+            // If file name is equal to search name, write it to the "Exact" buffer
+            if equals {
+                profi::prof!("is_result::return_exact");
+                return Some((
+                    Some(SearchResult::exact(path.to_string_lossy().into_owned())),
+                    is_dir.then_some(path.into_boxed_path()),
+                ));
+            }
+            // If file name contains the search name, write it to the "Contains" buffer
+            else if !search.exact && contains {
+                let s = if search.output == Output::Normal {
+                    crate::print::format_with_highlight(&fname, sname, &path, search)
+                } else {
+                    path.to_string_lossy().into_owned()
+                };
+                profi::prof!("is_result::return_contains");
+                return Some((
+                    Some(SearchResult::contains(s)),
+                    is_dir.then_some(path.into_boxed_path()),
+                ));
+            }
         }
     }
     profi::prof!("is_result::return_not_found");

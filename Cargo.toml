@@ -30,7 +30,7 @@ inquire = { version = "0.7.5" }                                 # Multiselect CL
 # Multithreaded fine-grained profiler 
 [dependencies.profi]
 version = "0.1.2"
-features = ["rayon", "attributes"]
+features = ["attributes"]
 default-features = false
 
 [target.'cfg(target_os = "linux")'.dependencies]
