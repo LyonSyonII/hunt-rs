@@ -141,20 +141,11 @@ impl From<Option<String>> for FileType {
     }
 }
 
-fn styles() -> clap::builder::Styles {
+const fn styles() -> clap::builder::Styles {
     clap::builder::Styles::styled()
-        .header(
-            clap::builder::styling::AnsiColor::Green.on_default()
-                | clap::builder::styling::Effects::BOLD,
-        )
-        .usage(
-            clap::builder::styling::AnsiColor::Green.on_default()
-                | clap::builder::styling::Effects::BOLD,
-        )
-        .literal(
-            clap::builder::styling::AnsiColor::Cyan.on_default()
-                | clap::builder::styling::Effects::BOLD,
-        )
+        .header(clap::builder::styling::AnsiColor::Green.on_default().bold())
+        .usage(clap::builder::styling::AnsiColor::Green.on_default().bold())
+        .literal(clap::builder::styling::AnsiColor::Cyan.on_default().bold())
         .placeholder(clap::builder::styling::AnsiColor::Cyan.on_default())
 }
 
@@ -264,9 +255,8 @@ pub struct Cli {
 }
 
 impl Cli {
+    #[profi::profile]
     pub fn run() -> Search {
-        profi::prof!(cli);
-
         let cli = Self::parse();
 
         let mut search_in_dirs = cli.search_in_dirs;

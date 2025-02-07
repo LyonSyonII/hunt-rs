@@ -1,9 +1,18 @@
-use crate::{searchresult::SearchResults, structs::{Buffers, Output, Search}};
+use crate::{
+    searchresult::SearchResults,
+    structs::{Buffers, Output, Search},
+};
 use std::io::Write;
 
 impl Search {
     #[profi::profile]
-    pub fn print_results(&self, SearchResults { exact: mut ex, contains: mut co }: SearchResults) -> std::io::Result<()> {
+    pub fn print_results(
+        &self,
+        SearchResults {
+            exact: mut ex,
+            contains: mut co,
+        }: SearchResults,
+    ) -> std::io::Result<()> {
         profi::prof!(print_results);
 
         if self.output == Output::SuperSimple {

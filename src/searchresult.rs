@@ -37,7 +37,7 @@ impl SearchResults {
             contains: Vec::new(),
         }
     }
-    
+
     #[inline(always)]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
@@ -45,7 +45,7 @@ impl SearchResults {
             contains: Vec::with_capacity(capacity),
         }
     }
-    
+
     #[inline(always)]
     pub fn push(&mut self, result: SearchResult) {
         match result {
@@ -53,7 +53,7 @@ impl SearchResults {
             SearchResult::Exact(r) => self.exact.push(r),
         }
     }
-    
+
     #[inline(always)]
     pub fn merge(&mut self, other: SearchResults) {
         self.exact.extend(other.exact);

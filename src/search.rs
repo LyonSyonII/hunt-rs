@@ -1,6 +1,7 @@
 use crate::{
     searchresult::{SearchResult, SearchResults},
-    structs::{Buffers, FileType, Output, Search}, threadpool::Pool,
+    structs::{Buffers, FileType, Output, Search},
+    threadpool::Pool,
 };
 use std::path::Path;
 
@@ -54,13 +55,9 @@ pub fn is_result(
     search: &Search,
 ) -> Option<(Option<SearchResult>, Option<Box<Path>>)> {
     // Get entry name
-    let path = {
-        profi::prof!("is_result::entry.path");
-        entry.path()
-    };
+    let path = entry.path();
 
     if !search.explicit_ignore.is_empty() {
-        profi::prof!("is_result::explicit_ignore");
         let canonicalized = path.canonicalize().ok()?;
         let ignore = |entry: &std::path::PathBuf| {
             if entry.is_absolute() {
@@ -75,7 +72,6 @@ pub fn is_result(
     }
 
     let is_hidden = || {
-        profi::prof!("is_result::is_hidden");
         #[cfg(unix)]
         {
             is_hidden(&path)
@@ -86,88 +82,61 @@ pub fn is_result(
         }
     };
 
-    {
-        profi::prof!("is_result::hidden_check");
-        if !search.hidden && is_hidden() {
-            return None;
-        }
+    if !search.hidden && is_hidden() {
+        return None;
     }
 
     // Read type of file and check if it should be added to search results
-    let is_dir = {
-        profi::prof!("is_result::is_dir");
-        matches!(entry.file_type(), Ok(ftype) if ftype.is_dir())
-    };
-    let ftype = {
-        profi::prof!("is_result::get_ftype");
+    let is_dir = matches!(entry.file_type(), Ok(ftype) if ftype.is_dir());
 
-        match search.ftype {
-            FileType::All => true,
-            FileType::Dir => is_dir,
-            FileType::File => !is_dir,
-        }
+    let ftype = match search.ftype {
+        FileType::All => true,
+        FileType::Dir => is_dir,
+        FileType::File => !is_dir,
     };
 
     let Some(fname) = file_name(&path) else {
-        profi::prof!("is_result::return_invalid_file_name");
         return Some((None, is_dir.then_some(path.into_boxed_path())));
     };
-    let fname = {
-        profi::prof!("is_result::fname.to_string_lossy");
-        fname.to_string_lossy()
-    };
+    let fname = fname.to_string_lossy();
+
     let sname = if search.case_sensitive {
-        profi::prof!("is_result::sname");
         fname.as_ref()
     } else {
-        profi::prof!("is_result::to_ascii_lowercase");
         &fname.to_ascii_lowercase()
     };
 
-    let starts = || {
-        profi::prof!("is_result::starts_with");
-        /* search.starts.is_empty() ||  */sname.starts_with(&search.starts)
-    };
-    let ends = || {
-        profi::prof!("is_result::ends_with");
-        /* search.ends.is_empty() ||  */sname.ends_with(&search.ends)
-    };
-    
-    {
-        profi::prof!("is_result::substring_checks");
-        if ftype && starts() && ends() {
-            let (equals, contains) = {
-                profi::prof!("is_result::contains");
-                if search.finder.find(sname.as_bytes()).is_none() {
-                    (false, false)
-                } else {
-                    (sname.len() == search.name.len(), true)
-                }
+    let starts = || sname.starts_with(&search.starts);
+    let ends = || sname.ends_with(&search.ends);
+
+    if ftype && starts() && ends() {
+        let (equals, contains) = {
+            if search.finder.find(sname.as_bytes()).is_none() {
+                (false, false)
+            } else {
+                (sname.len() == search.name.len(), true)
+            }
+        };
+        // If file name is equal to search name, write it to the "Exact" buffer
+        if equals {
+            return Some((
+                Some(SearchResult::exact(path.to_string_lossy().into_owned())),
+                is_dir.then_some(path.into_boxed_path()),
+            ));
+        }
+        // If file name contains the search name, write it to the "Contains" buffer
+        else if !search.exact && contains {
+            let s = if search.output == Output::Normal {
+                crate::print::format_with_highlight(&fname, sname, &path, search)
+            } else {
+                path.to_string_lossy().into_owned()
             };
-            // If file name is equal to search name, write it to the "Exact" buffer
-            if equals {
-                profi::prof!("is_result::return_exact");
-                return Some((
-                    Some(SearchResult::exact(path.to_string_lossy().into_owned())),
-                    is_dir.then_some(path.into_boxed_path()),
-                ));
-            }
-            // If file name contains the search name, write it to the "Contains" buffer
-            else if !search.exact && contains {
-                let s = if search.output == Output::Normal {
-                    crate::print::format_with_highlight(&fname, sname, &path, search)
-                } else {
-                    path.to_string_lossy().into_owned()
-                };
-                profi::prof!("is_result::return_contains");
-                return Some((
-                    Some(SearchResult::contains(s)),
-                    is_dir.then_some(path.into_boxed_path()),
-                ));
-            }
+            return Some((
+                Some(SearchResult::contains(s)),
+                is_dir.then_some(path.into_boxed_path()),
+            ));
         }
     }
-    profi::prof!("is_result::return_not_found");
     Some((None, is_dir.then_some(path.into_boxed_path())))
 }
 
