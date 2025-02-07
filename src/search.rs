@@ -1,12 +1,9 @@
 use crate::{
     searchresult::{SearchResult, SearchResults},
-    structs::{Buffers, FileType, Output, Search},
+    structs::{FileType, Output, Search},
     threadpool::Pool,
 };
 use std::path::Path;
-
-type Receiver = crossbeam_channel::Receiver<SearchResult>;
-type Sender = crossbeam_channel::Sender<SearchResult>;
 
 impl Search {
     #[profi::profile]
@@ -138,44 +135,6 @@ pub fn is_result(
         }
     }
     Some((None, is_dir.then_some(path.into_boxed_path())))
-}
-
-fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
-    use std::io::Write;
-
-    // -f
-    if search.first {
-        let Ok(path) = receiver.recv() else {
-            if search.output == Output::Normal {
-                println!("File not found");
-            }
-            std::process::exit(0)
-        };
-        println!("{path}");
-        std::process::exit(0)
-    }
-
-    let stdout = std::io::stdout();
-    let mut stdout = std::io::BufWriter::new(stdout.lock());
-
-    // -ss
-    if search.output == Output::SuperSimple {
-        while let Ok(path) = receiver.recv() {
-            writeln!(stdout, "{path}").unwrap();
-        }
-        stdout.flush().unwrap();
-        std::process::exit(0)
-    }
-
-    let mut exact = Vec::with_capacity(8);
-    let mut contains = Vec::with_capacity(8);
-    while let Ok(path) = receiver.recv() {
-        match path {
-            SearchResult::Contains(path) => contains.push(path),
-            SearchResult::Exact(path) => exact.push(path),
-        }
-    }
-    (exact, contains)
 }
 
 /// from https://github.com/BurntSushi/ripgrep/blob/master/crates/ignore/src/pathutil.rs

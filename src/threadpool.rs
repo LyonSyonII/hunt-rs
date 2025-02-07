@@ -1,18 +1,17 @@
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     sync::{
         self,
-        atomic::{AtomicBool, AtomicUsize},
-        Arc, Condvar, Mutex,
+        atomic::AtomicUsize,
+        Arc,
     },
     thread::JoinHandle,
 };
 
-use thin_str::ThinStr;
 
 use crate::{
-    searchresult::{SearchResult, SearchResults},
-    structs::{Output, Search},
+    searchresult::SearchResults,
+    structs::Search,
 };
 
 type WorkSender = crossbeam_channel::Sender<Option<Box<Path>>>;
@@ -21,7 +20,6 @@ type WorkReceiver = crossbeam_channel::Receiver<Option<Box<Path>>>;
 pub struct Pool {
     threads: Vec<JoinHandle<SearchResults>>,
     s_work: WorkSender,
-    working: Arc<AtomicUsize>,
 }
 
 struct Worker {
@@ -54,7 +52,6 @@ impl Pool {
         Self {
             threads,
             s_work,
-            working,
         }
     }
 
@@ -72,6 +69,7 @@ impl Pool {
 }
 
 impl Worker {
+    #[inline(always)]
     pub fn new(
         id: usize,
         threads: usize,
@@ -90,23 +88,32 @@ impl Worker {
             search,
         }
     }
+    
+    #[inline(always)]
+    pub const fn id(&self) -> usize {
+        self.id
+    }
 
     #[profi::profile]
+    #[inline(always)]
     pub fn start_work(&self) {
         self.working.fetch_add(1, sync::atomic::Ordering::AcqRel);
     }
 
     #[profi::profile]
+    #[inline(always)]
     pub fn end_work(&self) {
         self.working.fetch_sub(1, sync::atomic::Ordering::AcqRel);
     }
     
     #[profi::profile]
+    #[inline(always)]
     pub fn should_stop(&self) -> bool {
         self.working.load(sync::atomic::Ordering::Acquire) == 0 && self.r_work.is_empty()
     }
 
     #[profi::profile]
+    #[inline(always)]
     pub fn stop_all(&self) {
         for _ in 0..self.threads - 1 {
             self.s_work.send(None).unwrap();
@@ -114,8 +121,8 @@ impl Worker {
     }
 
     #[profi::profile]
+    #[inline(always)]
     pub fn work(mut self) -> SearchResults {
-        let id: usize = self.id;
         loop {
             match self.r_work.recv() {
                 Ok(None) => break,
@@ -136,11 +143,13 @@ impl Worker {
     }
 
     #[profi::profile]
+    #[inline(always)]
     pub fn send(&self, path: impl Into<Box<Path>>) {
         self.s_work.send(Some(path.into())).unwrap();
     }
 
     #[profi::profile]
+    #[inline(always)]
     pub fn search_dir(&mut self, path: Box<Path>) {
         let Ok(read) = std::fs::read_dir(&path) else {
             if self.search.verbose {
@@ -155,6 +164,9 @@ impl Worker {
             };
             if let Some(result) = result {
                 self.results.push(result);
+                if self.search.first {
+                    self.stop_all();
+                }
             }
             if let Some(path) = is_dir {
                 self.send(path)

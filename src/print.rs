@@ -13,7 +13,6 @@ impl Search {
             contains: mut co,
         }: SearchResults,
     ) -> std::io::Result<()> {
-        profi::prof!(print_results);
 
         if self.output == Output::SuperSimple {
             return Ok(());
@@ -28,13 +27,15 @@ impl Search {
             }
             return Ok(());
         }
-
-        {
-            profi::prof!(sort);
-            co.sort_unstable();
-            ex.sort_unstable();
-            // rayon::join(|| co.par_sort(), || ex.par_sort());
+        
+        if self.first {
+            let first = ex.first().or(co.first()).unwrap();
+            return stdout.write_all(first.as_bytes());
         }
+        
+        co.sort_unstable();
+        ex.sort_unstable();
+
 
         if self.select {
             return select((ex, co), stdout);
