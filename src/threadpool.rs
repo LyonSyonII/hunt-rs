@@ -22,8 +22,6 @@ pub struct Pool {
     threads: Vec<JoinHandle<SearchResults>>,
     s_work: WorkSender,
     working: Arc<AtomicUsize>,
-
-    search: Search,
 }
 
 struct Worker {
@@ -48,7 +46,7 @@ impl Pool {
         for i in 0..nthreads {
             let (s_work, r_work) = (s_work.clone(), r_work.clone());
             let working = working.clone();
-            let search = search.to_owned();
+            let search = search.clone();
             threads.push(std::thread::spawn(move || {
                 Worker::new(i, nthreads, s_work, r_work, working, search).work()
             }));
@@ -57,14 +55,13 @@ impl Pool {
             threads,
             s_work,
             working,
-            search: search.to_owned(),
         }
     }
 
     pub fn send(&self, path: impl Into<Box<Path>>) {
         self.s_work.send(Some(path.into())).unwrap();
     }
-
+    
     pub fn join(self) -> SearchResults {
         let mut results = SearchResults::with_capacity(8);
         for thread in self.threads.into_iter() {
@@ -103,6 +100,18 @@ impl Worker {
     pub fn end_work(&self) {
         self.working.fetch_sub(1, sync::atomic::Ordering::AcqRel);
     }
+    
+    #[profi::profile]
+    pub fn should_stop(&self) -> bool {
+        self.working.load(sync::atomic::Ordering::Acquire) == 0 && self.r_work.is_empty()
+    }
+
+    #[profi::profile]
+    pub fn stop_all(&self) {
+        for _ in 0..self.threads - 1 {
+            self.s_work.send(None).unwrap();
+        }
+    }
 
     #[profi::profile]
     pub fn work(mut self) -> SearchResults {
@@ -117,13 +126,9 @@ impl Worker {
                 }
                 Err(e) => unreachable!("{e}"),
             };
-            let should_stop =
-                self.working.load(sync::atomic::Ordering::Acquire) == 0 && self.r_work.is_empty();
 
-            if should_stop {
-                for _ in 0..self.threads - 1 {
-                    self.s_work.send(None).unwrap();
-                }
+            if self.should_stop() {
+                self.stop_all();
                 break;
             }
         }
