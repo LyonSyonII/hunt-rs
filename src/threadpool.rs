@@ -1,18 +1,10 @@
 use std::{
     path::Path,
-    sync::{
-        self,
-        atomic::AtomicUsize,
-        Arc,
-    },
+    sync::{self, atomic::AtomicUsize, Arc},
     thread::JoinHandle,
 };
 
-
-use crate::{
-    searchresult::SearchResults,
-    structs::Search,
-};
+use crate::{searchresult::SearchResults, structs::Search};
 
 type WorkSender = crossbeam_channel::Sender<Option<Box<Path>>>;
 type WorkReceiver = crossbeam_channel::Receiver<Option<Box<Path>>>;
@@ -26,6 +18,7 @@ struct Worker {
     id: usize,
     threads: usize,
 
+    local_work: Option<Box<Path>>,
     s_work: WorkSender,
     r_work: WorkReceiver,
     working: Arc<AtomicUsize>,
@@ -49,16 +42,13 @@ impl Pool {
                 Worker::new(i, nthreads, s_work, r_work, working, search).work()
             }));
         }
-        Self {
-            threads,
-            s_work,
-        }
+        Self { threads, s_work }
     }
 
     pub fn send(&self, path: impl Into<Box<Path>>) {
         self.s_work.send(Some(path.into())).unwrap();
     }
-    
+
     pub fn join(self) -> SearchResults {
         let mut results = SearchResults::with_capacity(8);
         for thread in self.threads.into_iter() {
@@ -86,9 +76,10 @@ impl Worker {
             r_work,
             working,
             search,
+            local_work: None,
         }
     }
-    
+
     #[inline(always)]
     pub const fn id(&self) -> usize {
         self.id
@@ -105,11 +96,13 @@ impl Worker {
     pub fn end_work(&self) {
         self.working.fetch_sub(1, sync::atomic::Ordering::AcqRel);
     }
-    
+
     #[profi::profile]
     #[inline(always)]
     pub fn should_stop(&self) -> bool {
-        self.working.load(sync::atomic::Ordering::Acquire) == 0 && self.r_work.is_empty()
+        self.local_work.is_none()
+            && self.working.load(sync::atomic::Ordering::Acquire) == 0
+            && self.r_work.is_empty()
     }
 
     #[profi::profile]
@@ -124,15 +117,21 @@ impl Worker {
     #[inline(always)]
     pub fn work(mut self) -> SearchResults {
         loop {
-            match self.r_work.recv() {
-                Ok(None) => break,
-                Ok(Some(path)) => {
-                    self.start_work();
-                    self.search_dir(path);
-                    self.end_work();
-                }
-                Err(e) => unreachable!("{e}"),
-            };
+            if let Some(path) = self.local_work.take() {
+                self.start_work();
+                self.search_dir(path);
+                self.end_work();
+            } else {
+                match self.r_work.recv() {
+                    Ok(None) => break,
+                    Ok(Some(path)) => {
+                        self.start_work();
+                        self.search_dir(path);
+                        self.end_work();
+                    }
+                    Err(e) => unreachable!("{e}"),
+                };
+            }
 
             if self.should_stop() {
                 self.stop_all();
@@ -168,7 +167,11 @@ impl Worker {
                     self.stop_all();
                 }
             }
-            if let Some(path) = is_dir {
+            let Some(path) = is_dir else { continue };
+            
+            if self.local_work.is_none() {
+                self.local_work = Some(path);
+            } else {
                 self.send(path)
             }
         }

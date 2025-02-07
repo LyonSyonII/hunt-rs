@@ -13,7 +13,6 @@ impl Search {
             contains: mut co,
         }: SearchResults,
     ) -> std::io::Result<()> {
-
         if self.output == Output::SuperSimple {
             return Ok(());
         }
@@ -27,15 +26,14 @@ impl Search {
             }
             return Ok(());
         }
-        
+
         if self.first {
             let first = ex.first().or(co.first()).unwrap();
             return stdout.write_all(first.as_bytes());
         }
-        
+
         co.sort_unstable();
         ex.sort_unstable();
-
 
         if self.select {
             return select((ex, co), stdout);
