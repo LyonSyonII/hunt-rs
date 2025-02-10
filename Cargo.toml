@@ -7,9 +7,8 @@ keywords = ["algorithms", "filesystem"]
 readme = "README.md"
 license = "MIT"
 version = "3.0.0"
-authors = ["Liam G <liam.garriga@tutanota.com>"]
+authors = ["LyonSyonII <liam@garriga.dev>"]
 edition = "2021"
-rust-version = "1.74.1"
 
 [package.metadata.wix]
 upgrade-guid = "93301563-2D91-4224-B838-C60D235011A0"
@@ -18,23 +17,14 @@ license = false
 eula = false
 
 [dependencies]
-clap = { version = "4.5.20", features = ["derive", "color"] }   # Command line argument parser
-colored = "2.1.0"                                               # Colored output
+clap = { version = "4.5.28", features = ["derive", "color"] }   # Command line argument parser
+colored = "3.0.0"                                               # Colored output
 rayon = "1.10.0"                                                # Parallelism library
-crossbeam-channel = "0.5.13"                                    # Faster channels (mpmc)
+crossbeam-channel = "0.5.14"                                    # Faster channels (mpmc)
 mimalloc = { version = "0.1.43", default-features = false }     # Faster allocator
 thin_str = "0.1.0"                                              # Thinner string (only 8 bytes)
 memchr = { version = "2.7.4", features = ["std", "alloc"] }     # Small substring search optimization        
 inquire = { version = "0.7.5" }                                 # Multiselect CLI interface
-
-# Multithreaded fine-grained profiler 
-[dependencies.profi]
-version = "0.1.2"
-features = ["rayon", "attributes"]
-default-features = false
-
-[target.'cfg(target_os = "linux")'.dependencies]
-rustix = { version = "0.38.34", default-features = false, features = ["fs", "alloc"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi-util = "0.1.8"
@@ -55,9 +45,6 @@ strip = false
 [profile.dist]
 inherits = "release"
 lto = "thin"
-
-[features]
-perf = ["profi/enable"] # Enable performance measurements
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]

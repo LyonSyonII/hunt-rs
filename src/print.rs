@@ -3,10 +3,7 @@ use rayon::prelude::ParallelSliceMut;
 use std::io::Write;
 
 impl Search {
-    #[profi::profile]
     pub fn print_results(self, buffers: Buffers) -> std::io::Result<()> {
-        profi::prof!(print_results);
-
         if self.output == Output::SuperSimple {
             return Ok(());
         }
@@ -22,11 +19,8 @@ impl Search {
             return Ok(());
         }
 
-        {
-            profi::prof!(sort);
-            rayon::join(|| co.par_sort(), || ex.par_sort());
-        }
-        
+        rayon::join(|| co.par_sort(), || ex.par_sort());
+
         if self.select {
             return select((ex, co), stdout);
         }
@@ -76,7 +70,6 @@ pub fn multiselect((ex, co): Buffers, mut stdout: impl std::io::Write) -> std::i
     Ok(())
 }
 
-#[profi::profile]
 pub fn print_with_highlight(
     stdout: &mut impl std::io::Write,
     fname: &str,
@@ -127,7 +120,6 @@ pub fn print_with_highlight(
     )
 }
 
-#[profi::profile]
 pub fn format_with_highlight(
     fname: &str,
     sname: &str,

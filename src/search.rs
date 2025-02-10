@@ -8,7 +8,6 @@ type Receiver = crossbeam_channel::Receiver<SearchResult>;
 type Sender = crossbeam_channel::Sender<SearchResult>;
 
 impl Search {
-    #[profi::profile]
     pub fn search(&self) -> Buffers {
         let (sender, receiver) = crossbeam_channel::bounded(8);
 
@@ -54,34 +53,25 @@ impl Search {
     }
 }
 
-#[profi::profile]
 fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: usize) {
     let path = path.as_ref();
-    
-    let read = {
-        profi::prof!("search_dir::read_dir");
-        let Ok(read) = std::fs::read_dir(path) else {
-            if search.verbose {
-                eprintln!("Could not read {:?}", path);
-            }
-            return;
-        };
-        read
+
+    let Ok(read) = std::fs::read_dir(path) else {
+        if search.verbose {
+            eprintln!("Could not read {:?}", path);
+        }
+        return;
     };
 
     rayon::scope(|s| {
-        profi::prof!("search_dir::inspect_entries");
         for entry in read.flatten() {
-            profi::prof!("search_dir::inspect_entry");
             let Some((result, is_dir)) = is_result(entry, search) else {
                 continue;
             };
             if let Some(result) = result {
-                profi::prof!("search_dir::send_result");
                 sender.send(result).unwrap();
             }
             if let Some(path) = is_dir {
-                profi::prof!("search_dir::spawn_search_dir");
                 if depth > search.max_depth {
                     search_dir(path, search, sender.clone(), depth);
                     continue;
@@ -92,19 +82,14 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: us
     });
 }
 
-#[profi::profile]
 fn is_result(
     entry: std::fs::DirEntry,
     search: &Search,
 ) -> Option<(Option<SearchResult>, Option<Box<Path>>)> {
     // Get entry name
-    let path = {
-        profi::prof!("is_result::entry.path");
-        entry.path()
-    };
+    let path = entry.path();
 
     if !search.explicit_ignore.is_empty() {
-        profi::prof!("is_result::explicit_ignore");
         let canonicalized = path.canonicalize().ok()?;
         let ignore = |entry: &std::path::PathBuf| {
             if entry.is_absolute() {
@@ -119,7 +104,6 @@ fn is_result(
     }
 
     let is_hidden = || {
-        profi::prof!("is_result::is_hidden");
         #[cfg(unix)]
         {
             is_hidden(&path)
@@ -130,57 +114,30 @@ fn is_result(
         }
     };
 
-    {
-        profi::prof!("is_result::hidden_check");
-        if !search.hidden && is_hidden() {
-            return None;
-        }
+    if !search.hidden && is_hidden() {
+        return None;
     }
 
     // Read type of file and check if it should be added to search results
-    let is_dir = {
-        profi::prof!("is_result::is_dir");
-        matches!(entry.file_type(), Ok(ftype) if ftype.is_dir())
-    };
-    let ftype = {
-        profi::prof!("is_result::get_ftype");
-
-        match search.ftype {
-            FileType::All => true,
-            FileType::Dir => is_dir,
-            FileType::File => !is_dir,
-        }
+    let is_dir = entry.file_type().ok()?.is_dir();
+    let ftype = match search.ftype {
+        FileType::All => true,
+        FileType::Dir => is_dir,
+        FileType::File => !is_dir,
     };
 
     let Some(fname) = file_name(&path) else {
-        profi::prof!("is_result::return_invalid_file_name");
         return Some((None, is_dir.then_some(path.into_boxed_path())));
     };
-    let fname = {
-        profi::prof!("is_result::fname.to_string_lossy");
-        fname.to_string_lossy()
-    };
-    let sname: std::borrow::Cow<str> = if search.case_sensitive {
-        profi::prof!("is_result::sname");
-        fname.as_ref().into()
+    let fname = fname.to_string_lossy();
+    let sname = if search.case_sensitive {
+        fname.as_ref()
     } else {
-        profi::prof!("is_result::to_ascii_lowercase");
-        fname.to_ascii_lowercase().into()
+        &fname.to_ascii_lowercase()
     };
-
-    let starts = || {
-        profi::prof!("is_result::starts_with");
-        search.starts.is_empty() || sname.starts_with(&search.starts)
-    };
-    let ends = || {
-        profi::prof!("is_result::ends_with");
-        search.ends.is_empty() || sname.ends_with(&search.ends)
-    };
-
-    profi::prof!("is_result::substring_checks");
-    if ftype && starts() && ends() {
+    
+    if ftype && sname.starts_with(&search.starts) && sname.ends_with(&search.ends) {
         let (equals, contains) = {
-            profi::prof!("is_result::contains");
             if search.finder.find(sname.as_bytes()).is_none() {
                 (false, false)
             } else {
@@ -189,27 +146,24 @@ fn is_result(
         };
         // If file name is equal to search name, write it to the "Exact" buffer
         if equals {
-            profi::prof!("is_result::return_exact");
             return Some((
                 Some(SearchResult::exact(path.to_string_lossy().into_owned())),
                 is_dir.then_some(path.into_boxed_path()),
             ));
         }
         // If file name contains the search name, write it to the "Contains" buffer
-        else if !search.exact && contains {
+        if !search.exact && contains {
             let s = if search.output == Output::Normal {
-                crate::print::format_with_highlight(&fname, &sname, &path, search)
+                crate::print::format_with_highlight(&fname, sname, &path, search)
             } else {
                 path.to_string_lossy().into_owned()
             };
-            profi::prof!("is_result::return_contains");
             return Some((
                 Some(SearchResult::contains(s)),
                 is_dir.then_some(path.into_boxed_path()),
             ));
         }
     }
-    profi::prof!("is_result::return_not_found");
     Some((None, is_dir.then_some(path.into_boxed_path())))
 }
 
@@ -301,7 +255,6 @@ pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
 ///
 /// If the path terminates in ., .., or consists solely of a root of prefix,
 /// file_name will return None.
-#[profi::profile]
 #[cfg(unix)]
 #[inline(always)]
 pub(crate) fn file_name(path: &Path) -> Option<&std::ffi::OsStr> {
