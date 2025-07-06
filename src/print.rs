@@ -5,8 +5,6 @@ use std::io::Write;
 impl Search {
     #[profi::profile]
     pub fn print_results(self, buffers: Buffers) -> std::io::Result<()> {
-        profi::prof!(print_results);
-
         if self.output == Output::SuperSimple {
             return Ok(());
         }
@@ -22,11 +20,8 @@ impl Search {
             return Ok(());
         }
 
-        {
-            profi::prof!(sort);
-            rayon::join(|| co.par_sort(), || ex.par_sort());
-        }
-        
+        rayon::join(|| co.par_sort(), || ex.par_sort());
+
         if self.select {
             return select((ex, co), stdout);
         }
