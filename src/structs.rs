@@ -230,15 +230,20 @@ pub struct Cli {
     #[arg(short = 't', long = "type")]
     file_type: Option<String>,
 
-    /// Ignores the provided files/directories. 
+    /// Ignores the provided files/directories.
     /// The format is: '-i dir1,dir2,dir3,...'
-    /// 
+    ///
     /// Which files will be ignored depends on how they are written:  
     /// - If the path is absolute or relative, only that file will be ignored
     ///   Examples: '/home/user/Downloads' or './Downloads'
     /// - If only a name is provided, ALL matching files/directories will be ignored
     ///   Examples: 'file.txt' or 'node_modules'
-    #[arg(short = 'i', long = "ignore", value_delimiter = ',', verbatim_doc_comment)]
+    #[arg(
+        short = 'i',
+        long = "ignore",
+        value_delimiter = ',',
+        verbatim_doc_comment
+    )]
     ignore: Option<Vec<PathBuf>>,
 
     /// Name of the file/folder to search. If starts/ends are specified, this field can be skipped
@@ -259,8 +264,6 @@ pub struct Cli {
 
 impl Cli {
     pub fn run() -> Search {
-        profi::prof!(cli);
-
         let cli = Self::parse();
 
         let mut search_in_dirs = cli.search_in_dirs;
@@ -296,7 +299,7 @@ impl Cli {
                 *p = c;
             }
         }
-        
+
         Search::new(
             cli.first,
             cli.exact,

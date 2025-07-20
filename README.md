@@ -80,7 +80,7 @@ By default, searches are case-insensitive, unless `[NAME]` contains an uppercase
 
     -h, --help
             Print help (see a summary with '-h')
-
+    
     -V, --version
             Print version
         
@@ -164,6 +164,10 @@ Hunt is multithreaded, so it's a lot faster than `find`, and more reliable than 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/hunt-find.svg)](https://repology.org/project/hunt-find/versions)
 ### Precompiled binaries
 Download the latest binary from [releases](https://github.com/lyonsyonii/hunt-rs/releases).
+
+Or install with `cargo-binstall`:
+    
+    cargo binstall hunt
 
 ### Compile from source
 First check that you have [Rust](https://www.rust-lang.org/) installed, then run
