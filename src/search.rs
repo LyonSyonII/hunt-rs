@@ -28,12 +28,12 @@ impl Search {
         // Check if paths are valid and canonicalize if necessary
         let dirs = self.dirs.iter().map(|path| {
             if !path.exists() {
-                eprintln!("Error: The {:?} directory does not exist", path);
+                eprintln!("Error: The {path:?} directory does not exist");
                 std::process::exit(1)
             }
             if self.canonicalize {
                 std::borrow::Cow::<Path>::Owned(path.canonicalize().unwrap_or_else(|_| {
-                    eprintln!("Error: The {:?} directory does not exist", path);
+                    eprintln!("Error: The {path:?} directory does not exist");
                     std::process::exit(1)
                 }))
             } else {
@@ -58,7 +58,11 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: us
 
     let Ok(read) = std::fs::read_dir(path) else {
         if search.verbose {
+<<<<<<< HEAD
             eprintln!("Could not read {:?}", path);
+=======
+            eprintln!("Could not read {path:?}");
+>>>>>>> main
         }
         return;
     };
@@ -119,7 +123,11 @@ fn is_result(
     }
 
     // Read type of file and check if it should be added to search results
+<<<<<<< HEAD
     let is_dir = entry.file_type().ok()?.is_dir();
+=======
+    let is_dir = matches!(entry.file_type(), Ok(ftype) if ftype.is_dir());
+>>>>>>> main
     let ftype = match search.ftype {
         FileType::All => true,
         FileType::Dir => is_dir,
@@ -130,6 +138,7 @@ fn is_result(
         return Some((None, is_dir.then_some(path.into_boxed_path())));
     };
     let fname = fname.to_string_lossy();
+<<<<<<< HEAD
     let sname = if search.case_sensitive {
         fname.as_ref()
     } else {
@@ -137,6 +146,18 @@ fn is_result(
     };
     
     if ftype && sname.starts_with(&search.starts) && sname.ends_with(&search.ends) {
+=======
+    let sname: std::borrow::Cow<str> = if search.case_sensitive {
+        fname.as_ref().into()
+    } else {
+        fname.to_ascii_lowercase().into()
+    };
+
+    let starts = || search.starts.is_empty() || sname.starts_with(&search.starts);
+    let ends = || search.ends.is_empty() || sname.ends_with(&search.ends);
+
+    if ftype && starts() && ends() {
+>>>>>>> main
         let (equals, contains) = {
             if search.finder.find(sname.as_bytes()).is_none() {
                 (false, false)
@@ -167,6 +188,7 @@ fn is_result(
     Some((None, is_dir.then_some(path.into_boxed_path())))
 }
 
+#[profi::profile]
 fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
     use std::io::Write;
 
@@ -214,6 +236,7 @@ fn receive_paths(receiver: Receiver, search: &Search) -> Buffers {
 /// On Unix, this implements a more optimized check.
 #[cfg(unix)]
 #[inline(always)]
+#[profi::profile]
 pub(crate) fn is_hidden(path: &Path) -> bool {
     use std::os::unix::ffi::OsStrExt;
 
@@ -230,6 +253,7 @@ pub(crate) fn is_hidden(path: &Path) -> bool {
 /// * The file attributes have the `HIDDEN` property set.
 #[cfg(windows)]
 #[inline(always)]
+#[profi::profile]
 pub(crate) fn is_hidden(entry: &std::fs::DirEntry) -> bool {
     use std::os::windows::fs::MetadataExt;
     use winapi_util::file;
@@ -273,6 +297,7 @@ pub(crate) fn file_name(path: &Path) -> Option<&std::ffi::OsStr> {
 /// file_name will return None.
 #[cfg(not(unix))]
 #[inline(always)]
+#[profi::profile]
 pub(crate) fn file_name<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> Option<&'a std::ffi::OsStr> {
     path.as_ref().file_name()
 }

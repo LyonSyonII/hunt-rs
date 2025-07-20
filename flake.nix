@@ -10,13 +10,6 @@
         inherit system;
         overlays = [ inputs.fenix.overlays.default ];
       };
-      buildDependencies = with pkgs; [];
-      runtimeDependencies = with pkgs; [
-          mold
-          lld
-          sccache
-          pkg-config
-      ];
       components = [
           "rustc"
           "cargo"
@@ -30,28 +23,21 @@
           "miri"
       ];
       nightly = pkgs.fenix.complete.withComponents components;
-      stable = pkgs.fenix.stable.withComponents ( nixpkgs.lib.sublist 0 (builtins.length components - 3) components );
-    
+      # stable = pkgs.fenix.stable.withComponents ( nixpkgs.lib.sublist 0 (builtins.length components - 3) components );
     in {
       devShells.default = pkgs.mkShell rec {
         nativeBuildInputs = with pkgs; [
           nightly
           # stable
-          
           fenix.targets.x86_64-unknown-linux-gnu.latest.rust-std
-          
-          rustup
-          cargo-msrv
-
-          openssl.dev
-        ] ++ buildDependencies;
+          mold
+        ];
         
-        buildInputs = runtimeDependencies;
+        buildInputs = [];
 
         RUST_SRC_PATH = "${pkgs.fenix.complete.rust-src}/lib/rustlib/src/rust/library";
-        RUSTC_WRAPPER = "sccache";
+        RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";
         RUSTFLAGS = "-Ctarget-cpu=native -Clink-arg=-fuse-ld=mold";
-        MSRVFLAGS = "-Clink-arg=-fuse-ld=mold"; # RUSTFLAGS=$MSRVFLAGS cargo msrv
 
         LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath nativeBuildInputs;
       };

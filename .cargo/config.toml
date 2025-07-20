@@ -1,0 +1,19 @@
+[unstable]
+profile-rustflags = true
+codegen-backend = true
+
+[profile.dev]
+incremental = true
+opt-level = 0
+codegen-backend = "cranelift"
+rustflags = [
+	"-Zthreads=0", #num cores
+]
+
+[profile.dev.build-override]
+opt-level = 3
+
+[profile.dev.package."*"]
+incremental = false
+codegen-backend = "llvm"
+opt-level = 3

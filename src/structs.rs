@@ -49,7 +49,7 @@ pub struct Search {
 
     /// Memchr Finder
     pub finder: memchr::memmem::Finder<'static>,
-    
+
     pub max_depth: usize,
 }
 
@@ -130,7 +130,10 @@ impl From<Option<String>> for FileType {
                 "d" => FileType::Dir,
                 "f" => FileType::File,
                 _ => {
-                    eprintln!("File type {} not recognized\nPlease use 'f' for files and 'd' for directories\nSee --help for more information\n", s);
+                    eprintln!(
+                        "File type {} not recognized\nPlease use 'f' for files and 'd' for directories\nSee --help for more information\n",
+                        s
+                    );
                     std::process::exit(1)
                 }
             }
@@ -263,6 +266,7 @@ pub struct Cli {
 }
 
 impl Cli {
+    #[profi::profile]
     pub fn run() -> Search {
         let cli = Self::parse();
 
