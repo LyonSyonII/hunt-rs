@@ -168,13 +168,13 @@ fn styles() -> clap::builder::Styles {
     styles = styles()
 )]
 pub struct Cli {
-    /// Stop when first occurrence is found
+    /// Stop when first occurrence is found.
     #[arg(short, long)]
     first: bool,
 
-    /// Only search for exactly matching occurrences, any file only containing the query will be skipped
+    /// Only search for exactly matching occurrences, any file only containing the query will be skipped.
     ///
-    /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the search
+    /// e.g. if query is "SomeFile", "I'mSomeFile" will be skipped, as its name contains more letters than the search.
     #[arg(short, long)]
     exact: bool,
 
@@ -182,55 +182,54 @@ pub struct Cli {
     #[arg(short, long)]
     canonicalize: bool,
 
-    /// If enabled, the search will be case-sensitive
+    /// If enabled, the search will be case-sensitive.
     ///
-    /// Note that case-sensitivity will be activated automatically when the search query contains an uppercase letter
+    /// Note that case-sensitivity will be activated automatically when the search query contains an uppercase letter.
     #[arg(short = 'C', long)]
     case_sensitive: bool,
 
-    /// Print verbose output
+    /// Print verbose output.
     ///
-    /// It'll show all errors found:    
-    /// e.g. "Could not read /proc/81261/map_files"
+    /// It'll show all errors found:  
+    /// e.g. "Could not read /proc/81261/map_files".
     #[arg(short, long)]
     verbose: bool,
 
-    /// Prints without formatting (without "Contains:" and "Exact:")
+    /// Prints without formatting (without "Contains:" and "Exact:").
     ///
-    /// -ss Output is not sorted
+    /// -ss: Output is not sorted.
     #[arg(short, long, action = clap::ArgAction::Count)]
     simple: u8,
 
-    /// If enabled, it searches inside hidden directories
-    ///
-    /// If not enabled, hidden directories will be skipped
+    /// If enabled, it searches inside hidden directories.  
+    /// If not enabled, hidden directories will be skipped.
     #[arg(short = 'H', long)]
     hidden: bool,
 
-    /// When the search is finished, choose one file between the results
+    /// When the search is finished, choose one file between the results.
     ///
-    /// The selected file will be printed as if -ss was used
+    /// The selected file will be printed as if -ss was used.
     #[arg(long, conflicts_with_all(["simple", "multiselect", "first"]))]
     select: bool,
 
-    /// When the search is finished, choose between the results
+    /// When the search is finished, choose between the results.
     ///
-    /// The selected files will be printed one after the other, separated by spaces
+    /// The selected files will be printed one after the other, separated by spaces.
     #[arg(long, conflicts_with_all(["simple", "select", "first"]))]
     multiselect: bool,
 
-    /// Only files that start with this will be found
+    /// Only files that start with this will be found.
     #[arg(short = 'S', long = "starts")]
     starts_with: Option<String>,
 
-    /// Only files that end with this will be found
+    /// Only files that end with this will be found.
     #[arg(short = 'E', long = "ends")]
     ends_with: Option<String>,
 
-    /// Specifies the type of the file
+    /// Specifies the type of the file.
     ///
     /// 'f' -> file | 'd' -> directory
-    #[arg(short = 't', long = "type")]
+    #[arg(short = 't', long = "type", value_parser = ["f", "d"])]
     file_type: Option<String>,
 
     /// Ignores the provided files/directories.
