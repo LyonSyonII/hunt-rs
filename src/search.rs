@@ -58,11 +58,7 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: us
 
     let Ok(read) = std::fs::read_dir(path) else {
         if search.verbose {
-<<<<<<< HEAD
-            eprintln!("Could not read {:?}", path);
-=======
             eprintln!("Could not read {path:?}");
->>>>>>> main
         }
         return;
     };
@@ -123,11 +119,7 @@ fn is_result(
     }
 
     // Read type of file and check if it should be added to search results
-<<<<<<< HEAD
-    let is_dir = entry.file_type().ok()?.is_dir();
-=======
     let is_dir = matches!(entry.file_type(), Ok(ftype) if ftype.is_dir());
->>>>>>> main
     let ftype = match search.ftype {
         FileType::All => true,
         FileType::Dir => is_dir,
@@ -138,15 +130,7 @@ fn is_result(
         return Some((None, is_dir.then_some(path.into_boxed_path())));
     };
     let fname = fname.to_string_lossy();
-<<<<<<< HEAD
-    let sname = if search.case_sensitive {
-        fname.as_ref()
-    } else {
-        &fname.to_ascii_lowercase()
-    };
-    
-    if ftype && sname.starts_with(&search.starts) && sname.ends_with(&search.ends) {
-=======
+
     let sname: std::borrow::Cow<str> = if search.case_sensitive {
         fname.as_ref().into()
     } else {
@@ -157,7 +141,6 @@ fn is_result(
     let ends = || search.ends.is_empty() || sname.ends_with(&search.ends);
 
     if ftype && starts() && ends() {
->>>>>>> main
         let (equals, contains) = {
             if search.finder.find(sname.as_bytes()).is_none() {
                 (false, false)
@@ -175,7 +158,7 @@ fn is_result(
         // If file name contains the search name, write it to the "Contains" buffer
         if !search.exact && contains {
             let s = if search.output == Output::Normal {
-                crate::print::format_with_highlight(&fname, sname, &path, search)
+                crate::print::format_with_highlight(&fname, &sname, &path, search)
             } else {
                 path.to_string_lossy().into_owned()
             };
