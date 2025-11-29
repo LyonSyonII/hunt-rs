@@ -31,6 +31,8 @@
           # stable
           fenix.targets.x86_64-unknown-linux-gnu.latest.rust-std
           mold
+          cargo-flamegraph
+          samply
         ];
         
         buildInputs = [];

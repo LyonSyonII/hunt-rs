@@ -21,7 +21,7 @@ impl Search {
                 std::borrow::Cow::Borrowed(std::path::Path::new("."))
             };
             return rayon::scope(|s| {
-                s.spawn(|_| search_dir(path, self, sender, 0));
+                s.spawn(|scope| search_dir(path, self, sender, 0, scope));
                 receive_paths(receiver, self)
             });
         }
@@ -45,7 +45,7 @@ impl Search {
         rayon::scope(move |s| {
             for dir in dirs {
                 let sender = sender.clone();
-                s.spawn(move |_| search_dir(dir, self, sender, 0));
+                s.spawn(move |scope| search_dir(dir, self, sender, 0, scope));
             }
             drop(sender);
             receive_paths(receiver, self)
@@ -53,7 +53,7 @@ impl Search {
     }
 }
 
-fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: usize) {
+fn search_dir<'scope_ref, 'scope>(path: impl AsRef<Path>, search: &'scope Search, sender: Sender, depth: usize, scope: &'scope_ref rayon::Scope<'scope>) {
     let path = path.as_ref();
 
     let Ok(read) = std::fs::read_dir(path) else {
@@ -63,7 +63,7 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: us
         return;
     };
 
-    rayon::scope(|s| {
+
         for entry in read.flatten() {
             let Some((result, is_dir)) = is_result(entry, search) else {
                 continue;
@@ -73,13 +73,13 @@ fn search_dir(path: impl AsRef<Path>, search: &Search, sender: Sender, depth: us
             }
             if let Some(path) = is_dir {
                 if depth > search.max_depth {
-                    search_dir(path, search, sender.clone(), depth);
+                    search_dir(path, search, sender.clone(), depth, scope);
                     continue;
                 }
-                s.spawn(|_| search_dir(path, search, sender.clone(), depth + 1));
+                let sender = sender.clone();
+                scope.spawn(move |scope| search_dir(path, search, sender, depth + 1, scope));
             }
         }
-    });
 }
 
 fn is_result(
