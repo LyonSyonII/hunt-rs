@@ -53,7 +53,13 @@ impl Search {
     }
 }
 
-fn search_dir<'scope_ref, 'scope>(path: impl AsRef<Path>, search: &'scope Search, sender: Sender, depth: usize, scope: &'scope_ref rayon::Scope<'scope>) {
+fn search_dir<'scope_ref, 'scope>(
+    path: impl AsRef<Path>,
+    search: &'scope Search,
+    sender: Sender,
+    depth: usize,
+    scope: &'scope_ref rayon::Scope<'scope>,
+) {
     let path = path.as_ref();
 
     let Ok(read) = std::fs::read_dir(path) else {
@@ -63,23 +69,22 @@ fn search_dir<'scope_ref, 'scope>(path: impl AsRef<Path>, search: &'scope Search
         return;
     };
 
-
-        for entry in read.flatten() {
-            let Some((result, is_dir)) = is_result(entry, search) else {
-                continue;
-            };
-            if let Some(result) = result {
-                sender.send(result).unwrap();
-            }
-            if let Some(path) = is_dir {
-                if depth > search.max_depth {
-                    search_dir(path, search, sender.clone(), depth, scope);
-                    continue;
-                }
-                let sender = sender.clone();
-                scope.spawn(move |scope| search_dir(path, search, sender, depth + 1, scope));
-            }
+    for entry in read.flatten() {
+        let Some((result, is_dir)) = is_result(entry, search) else {
+            continue;
+        };
+        if let Some(result) = result {
+            sender.send(result).unwrap();
         }
+        if let Some(path) = is_dir {
+            if depth > search.max_depth {
+                search_dir(path, search, sender.clone(), depth, scope);
+                continue;
+            }
+            let sender = sender.clone();
+            scope.spawn(move |scope| search_dir(path, search, sender, depth + 1, scope));
+        }
+    }
 }
 
 fn is_result(
